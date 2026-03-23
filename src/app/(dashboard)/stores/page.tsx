@@ -3,17 +3,13 @@
 import { useState } from "react";
 import {
   Store as StoreIcon,
-  Wifi,
-  WifiOff,
   ExternalLink,
   Trash2,
   Plus,
   RefreshCw,
   Loader2,
+  Package,
 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -119,38 +115,72 @@ export default function StoresPage() {
   const connectStoreDialog = (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="domain">Store Domain</Label>
+        <Label htmlFor="domain" className="text-on-surface text-sm font-medium">
+          Store Domain
+        </Label>
         <div className="flex items-center gap-2">
           <Input
             id="domain"
             value={storeDomain}
             onChange={(e) => setStoreDomain(e.target.value)}
             placeholder="mystore"
+            className="bg-surface-container-high border-outline-variant text-on-surface placeholder:text-on-surface-variant"
             onKeyDown={(e) => e.key === "Enter" && handleConnect()}
           />
-          <span className="text-sm text-zinc-500">.myshopify.com</span>
+          <span className="text-sm text-on-surface-variant whitespace-nowrap">.myshopify.com</span>
         </div>
       </div>
       <div className="flex justify-end">
-        <Button onClick={handleConnect} disabled={connecting}>
-          {connecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        <button
+          onClick={handleConnect}
+          disabled={connecting}
+          className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#73f08c] to-[#3ecf8e] px-5 py-2.5 text-sm font-semibold text-[#0a2218] transition-all hover:brightness-110 disabled:opacity-50"
+        >
+          {connecting && <Loader2 className="h-4 w-4 animate-spin" />}
           Connect
-        </Button>
+        </button>
       </div>
+    </div>
+  );
+
+  const header = (
+    <div className="flex items-center justify-between">
+      <div>
+        <h1 className="text-4xl font-extrabold tracking-tighter text-on-surface">
+          Stores
+        </h1>
+        <p className="mt-1 text-sm text-on-surface-variant">
+          Connect and manage your Shopify stores
+        </p>
+      </div>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogTrigger
+          render={
+            <button className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#73f08c] to-[#3ecf8e] px-5 py-2.5 text-sm font-semibold text-[#0a2218] shadow-lg shadow-[#73f08c]/20 transition-all hover:brightness-110">
+              <Plus className="h-4 w-4" />
+              Connect Store
+            </button>
+          }
+        />
+        <DialogContent className="bg-surface-container border-outline-variant">
+          <DialogHeader>
+            <DialogTitle className="text-on-surface">Connect a Shopify Store</DialogTitle>
+            <DialogDescription className="text-on-surface-variant">
+              Enter your Shopify store domain to connect
+            </DialogDescription>
+          </DialogHeader>
+          {connectStoreDialog}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Stores</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Connect and manage your Shopify stores
-          </p>
-        </div>
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+      <div className="space-y-8">
+        {header}
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-on-surface-variant" />
         </div>
       </div>
     );
@@ -158,78 +188,54 @@ export default function StoresPage() {
 
   if (error) {
     return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Stores</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Connect and manage your Shopify stores
-          </p>
-        </div>
-        <Card className="p-12">
+      <div className="space-y-8">
+        {header}
+        <div className="bg-surface-container-low rounded-xl p-12">
           <div className="flex flex-col items-center gap-4 text-center">
-            <p className="text-sm text-red-500">Failed to load stores: {error}</p>
-            <Button variant="outline" onClick={refetch}>
+            <p className="text-sm text-error">Failed to load stores: {error}</p>
+            <button
+              onClick={refetch}
+              className="rounded-lg border border-outline-variant bg-surface-container px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-high"
+            >
               Retry
-            </Button>
+            </button>
           </div>
-        </Card>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Stores</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Connect and manage your Shopify stores
-          </p>
-        </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger
-            render={
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Connect Store
-              </Button>
-            }
-          />
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Connect a Shopify Store</DialogTitle>
-              <DialogDescription>
-                Enter your Shopify store domain to connect
-              </DialogDescription>
-            </DialogHeader>
-            {connectStoreDialog}
-          </DialogContent>
-        </Dialog>
-      </div>
+    <div className="space-y-8">
+      {header}
 
       {stores.length === 0 ? (
-        <Card className="p-12">
-          <div className="flex flex-col items-center gap-4 text-center">
-            <StoreIcon className="h-12 w-12 text-zinc-300 dark:text-zinc-700" />
+        <div className="bg-surface-container-low rounded-xl p-16">
+          <div className="flex flex-col items-center gap-5 text-center">
+            <div className="rounded-2xl bg-surface-container p-4">
+              <StoreIcon className="h-12 w-12 text-on-surface-variant" />
+            </div>
             <div>
-              <h3 className="font-semibold">No stores connected</h3>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              <h3 className="text-lg font-semibold text-on-surface">
+                No stores connected
+              </h3>
+              <p className="mt-1 text-sm text-on-surface-variant">
                 Connect your first Shopify store to start tracking profits.
               </p>
             </div>
             <Dialog>
               <DialogTrigger
                 render={
-                  <Button>
-                    <Plus className="mr-2 h-4 w-4" />
+                  <button className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#73f08c] to-[#3ecf8e] px-5 py-2.5 text-sm font-semibold text-[#0a2218] shadow-lg shadow-[#73f08c]/20 transition-all hover:brightness-110">
+                    <Plus className="h-4 w-4" />
                     Connect Your First Store
-                  </Button>
+                  </button>
                 }
               />
-              <DialogContent>
+              <DialogContent className="bg-surface-container border-outline-variant">
                 <DialogHeader>
-                  <DialogTitle>Connect a Shopify Store</DialogTitle>
-                  <DialogDescription>
+                  <DialogTitle className="text-on-surface">Connect a Shopify Store</DialogTitle>
+                  <DialogDescription className="text-on-surface-variant">
                     Enter your Shopify store domain to connect
                   </DialogDescription>
                 </DialogHeader>
@@ -237,7 +243,7 @@ export default function StoresPage() {
               </DialogContent>
             </Dialog>
           </div>
-        </Card>
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {stores.map((store) => {
@@ -246,76 +252,100 @@ export default function StoresPage() {
             const isDeleting = deletingStoreId === store.id;
 
             return (
-              <Card key={store.id}>
-                <CardHeader>
+              <div
+                key={store.id}
+                className="group relative flex overflow-hidden rounded-xl bg-surface-container-low p-6"
+              >
+                {/* Green left border for active stores */}
+                {isActive && (
+                  <div className="absolute left-0 top-0 h-full w-1 bg-[#73f08c]" />
+                )}
+
+                <div className="flex w-full flex-col gap-4">
+                  {/* Top row: icon, name, status */}
                   <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle>{store.name}</CardTitle>
-                      <CardDescription className="mt-1">
-                        {store.shopifyDomain}
-                      </CardDescription>
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface-container">
+                        <StoreIcon className="h-5 w-5 text-on-surface-variant" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-semibold text-on-surface">
+                          {store.name}
+                        </h3>
+                        <p className="text-xs text-on-surface-variant">
+                          {store.shopifyDomain}
+                        </p>
+                      </div>
                     </div>
-                    <Badge variant={isActive ? "success" : "destructive"}>
-                      {isActive ? (
-                        <>
-                          <Wifi className="mr-1 h-3 w-3" />
-                          Active
-                        </>
-                      ) : (
-                        <>
-                          <WifiOff className="mr-1 h-3 w-3" />
-                          {store.status.charAt(0).toUpperCase() + store.status.slice(1)}
-                        </>
+                    {/* Status badge */}
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+                        isActive
+                          ? "bg-[#73f08c]/10 text-tertiary-dim"
+                          : "bg-surface-container text-on-surface-variant"
+                      }`}
+                    >
+                      {isActive && (
+                        <span className="relative flex h-2 w-2">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#73f08c] opacity-75" />
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-[#73f08c]" />
+                        </span>
                       )}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-zinc-500">
-                      Last sync: {formatLastSync(store.lastSyncAt)}
+                      {isActive
+                        ? "Active"
+                        : store.status.charAt(0).toUpperCase() + store.status.slice(1)}
                     </span>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
+
+                  {/* Stats section */}
+                  <div className="flex items-center gap-4 rounded-lg bg-surface-container px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <Package className="h-3.5 w-3.5 text-on-surface-variant" />
+                      <span className="text-xs text-on-surface-variant">Orders synced</span>
+                    </div>
+                    <div className="ml-auto text-xs text-on-surface-variant">
+                      Last sync: {formatLastSync(store.lastSyncAt)}
+                    </div>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
                       disabled={isSyncing}
                       onClick={() => handleSync(store.id)}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container-high disabled:opacity-50"
                     >
                       {isSyncing ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
-                        <RefreshCw className="mr-2 h-4 w-4" />
+                        <RefreshCw className="h-3.5 w-3.5" />
                       )}
                       Sync
-                    </Button>
+                    </button>
                     <a
                       href={`https://${store.shopifyDomain}/admin`}
                       target="_blank"
                       rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container-high"
                     >
-                      <Button variant="outline" size="sm">
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Open
                     </a>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-red-600 hover:text-red-700"
+                    <button
                       disabled={isDeleting}
                       onClick={() => handleDelete(store.id)}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-xs font-medium text-error transition-colors hover:bg-surface-container-high disabled:opacity-50"
                     >
                       {isDeleting ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       )}
-                    </Button>
+                      Delete
+                    </button>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             );
           })}
         </div>

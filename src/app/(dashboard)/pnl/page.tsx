@@ -1,15 +1,11 @@
 "use client";
 
 import { Download, Calendar, Loader2 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useApi } from "@/hooks/use-api";
 import {
   Bar,
   BarChart,
   CartesianGrid,
-  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -57,35 +53,21 @@ function PnLSkeleton() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <Skeleton className="h-9 w-64" />
-          <Skeleton className="mt-2 h-4 w-96" />
+          <div className="h-9 w-64 animate-pulse rounded-lg bg-surface-container" />
+          <div className="mt-2 h-4 w-96 animate-pulse rounded-lg bg-surface-container" />
         </div>
         <div className="flex gap-3">
-          <Skeleton className="h-10 w-36" />
-          <Skeleton className="h-10 w-24" />
+          <div className="h-10 w-36 animate-pulse rounded-lg bg-surface-container" />
+          <div className="h-10 w-24 animate-pulse rounded-lg bg-surface-container" />
         </div>
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-32" />
-            <Skeleton className="h-4 w-24" />
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <Skeleton key={i} className="h-5 w-full" />
-            ))}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-40" />
-            <Skeleton className="h-4 w-32" />
-          </CardHeader>
-          <CardContent>
-            <Skeleton className="h-[500px] w-full" />
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 lg:grid-cols-12">
+        <div className="lg:col-span-7">
+          <div className="h-[600px] animate-pulse rounded-xl bg-surface-container-low" />
+        </div>
+        <div className="lg:col-span-5">
+          <div className="h-[600px] animate-pulse rounded-xl bg-surface-container-low" />
+        </div>
       </div>
     </div>
   );
@@ -99,14 +81,15 @@ export default function PnLPage() {
   if (error) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Card className="max-w-md">
-          <CardContent className="pt-6 text-center">
-            <p className="text-sm text-red-600">Failed to load P&L data: {error}</p>
-            <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="max-w-md rounded-xl border border-outline-variant/5 bg-surface-container-low p-6 text-center">
+          <p className="text-sm text-error">Failed to load P&L data: {error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 rounded-lg border border-outline-variant/5 bg-surface-container px-4 py-2 text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container-high"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
@@ -115,154 +98,189 @@ export default function PnLPage() {
 
   const { report, trend } = data;
 
-  // Build chart data from the last two months in trend (if available)
-  const chartData = (() => {
-    if (trend.length < 2) return [];
-    const current = trend[trend.length - 1];
-    const previous = trend[trend.length - 2];
-    return [
-      { category: "Revenue", current: current.revenue, previous: previous.revenue },
-      { category: "Profit", current: current.profit, previous: previous.profit },
-      { category: "Orders", current: current.orderCount, previous: previous.orderCount },
-    ];
-  })();
+  const chartData = trend.map((item) => ({
+    month: item.month,
+    Revenue: item.revenue,
+    Profit: item.profit,
+  }));
 
   const currentMonth = trend.length > 0 ? trend[trend.length - 1].month : "Current";
-  const previousMonth = trend.length > 1 ? trend[trend.length - 2].month : "Previous";
+
+  const operatingMargin =
+    report.netRevenue !== 0
+      ? ((report.netProfit / report.netRevenue) * 100).toFixed(1)
+      : "0.0";
+
+  const cacRatio =
+    report.adSpend !== 0
+      ? (report.netRevenue / report.adSpend).toFixed(1)
+      : "N/A";
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Profit & Loss Report</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          <h1 className="text-4xl font-extrabold text-on-surface">Profit & Loss Report</h1>
+          <p className="mt-1 text-sm text-on-surface-variant">
             Monthly breakdown of revenue, costs, and net profit
           </p>
         </div>
-        <div className="flex gap-3">
-          <Button variant="outline">
-            <Calendar className="mr-2 h-4 w-4" />
+        <div className="flex items-center gap-3">
+          <button className="inline-flex items-center gap-2 rounded-lg border border-outline-variant/5 bg-surface-container px-4 py-2 text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container-high">
+            <Calendar className="h-4 w-4" />
             {currentMonth}
-          </Button>
-          <Button>
-            <Download className="mr-2 h-4 w-4" />
+          </button>
+          <button className="inline-flex items-center gap-2 rounded-lg bg-surface-container-high px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container">
+            <Download className="h-4 w-4" />
             Export
-          </Button>
+          </button>
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>P&L Statement</CardTitle>
-            <CardDescription>{currentMonth}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span>Gross Revenue</span>
-              <span className="font-semibold">{formatCurrency(report.grossRevenue)}</span>
-            </div>
-            <div className="flex items-center justify-between text-red-600">
-              <span>Refunds & Returns</span>
-              <span className="font-semibold">-{formatCurrency(report.refunds)}</span>
-            </div>
-            <div className="h-px bg-zinc-200 dark:bg-zinc-800" />
-            <div className="flex items-center justify-between text-lg font-bold">
-              <span>Net Revenue</span>
-              <span>{formatCurrency(report.netRevenue)}</span>
+      {/* 2-Column Layout: 7/5 split */}
+      <div className="grid gap-4 lg:grid-cols-12">
+        {/* Left: P&L Statement */}
+        <div className="lg:col-span-7">
+          <div className="rounded-xl border border-outline-variant/5 bg-surface-container-low p-6">
+            <div className="mb-6">
+              <h2 className="text-lg font-bold text-on-surface">P&L Statement</h2>
+              <p className="text-sm text-on-surface-variant">{currentMonth}</p>
             </div>
 
-            <div className="pt-4">
-              <div className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
-                Cost of Goods
-              </div>
-              <div className="flex items-center justify-between text-red-600">
-                <span>COGS (Product Cost)</span>
-                <span className="font-semibold">-{formatCurrency(report.cogs)}</span>
-              </div>
-            </div>
-            <div className="h-px bg-zinc-200 dark:bg-zinc-800" />
-            <div className="flex items-center justify-between text-lg font-bold">
-              <span>Gross Profit</span>
-              <span>{formatCurrency(report.grossProfit)}</span>
-            </div>
-
-            <div className="pt-4">
-              <div className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
-                Operating Expenses
-              </div>
+            <div className="space-y-4">
+              {/* Revenue Section */}
+              <div className="text-sm font-bold uppercase tracking-widest text-outline">Revenue</div>
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-red-600">
-                  <span>Shipping Costs</span>
-                  <span>-{formatCurrency(report.shipping)}</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-on-surface-variant">Gross Revenue</span>
+                  <span className="text-sm font-semibold text-on-surface">{formatCurrency(report.grossRevenue)}</span>
                 </div>
-                <div className="flex items-center justify-between text-red-600">
-                  <span>Transaction Fees</span>
-                  <span>-{formatCurrency(report.transactionFees)}</span>
-                </div>
-                <div className="flex items-center justify-between text-red-600">
-                  <span>Ad Spend</span>
-                  <span>-{formatCurrency(report.adSpend)}</span>
-                </div>
-                <div className="flex items-center justify-between text-red-600">
-                  <span>Custom Costs</span>
-                  <span>-{formatCurrency(report.customCosts)}</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-on-surface-variant">Refunds & Returns</span>
+                  <span className="text-sm font-semibold text-error">-{formatCurrency(report.refunds)}</span>
                 </div>
               </div>
-            </div>
-            <div className="h-px bg-zinc-200 dark:bg-zinc-800" />
-            <div className="flex items-center justify-between">
-              <span className="font-semibold">Total Operating Expenses</span>
-              <span className="font-semibold text-red-600">
-                -{formatCurrency(report.totalOperatingExpenses)}
-              </span>
-            </div>
-            <div className="h-px bg-zinc-200 dark:bg-zinc-800" />
-            <div className="flex items-center justify-between text-lg font-bold text-green-600">
-              <span>Net Profit</span>
-              <span>{formatCurrency(report.netProfit)}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-zinc-500">Profit Margin</span>
-              <span className="font-medium">{report.profitMargin.toFixed(1)}%</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-zinc-500">Order Count</span>
-              <span className="font-medium">{report.orderCount.toLocaleString()}</span>
-            </div>
-          </CardContent>
-        </Card>
+              <div className="h-px bg-outline-variant/5" />
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-on-surface">Net Revenue</span>
+                <span className="text-base font-bold text-on-surface">{formatCurrency(report.netRevenue)}</span>
+              </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Monthly Comparison</CardTitle>
-            <CardDescription>
-              {currentMonth} vs {previousMonth}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+              {/* COGS Section */}
+              <div className="pt-4 text-sm font-bold uppercase tracking-widest text-outline">Cost of Goods</div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-on-surface-variant">COGS (Product Cost)</span>
+                <span className="text-sm font-semibold text-error">-{formatCurrency(report.cogs)}</span>
+              </div>
+              <div className="h-px bg-outline-variant/5" />
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-on-surface">Gross Profit</span>
+                <span className="text-base font-bold text-on-surface">{formatCurrency(report.grossProfit)}</span>
+              </div>
+
+              {/* Operating Expenses Section */}
+              <div className="pt-4 text-sm font-bold uppercase tracking-widest text-outline">Operating Expenses</div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-on-surface-variant">Shipping Costs</span>
+                  <span className="text-sm text-error">-{formatCurrency(report.shipping)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-on-surface-variant">Transaction Fees</span>
+                  <span className="text-sm text-error">-{formatCurrency(report.transactionFees)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-on-surface-variant">Ad Spend</span>
+                  <span className="text-sm text-error">-{formatCurrency(report.adSpend)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-on-surface-variant">Custom Costs</span>
+                  <span className="text-sm text-error">-{formatCurrency(report.customCosts)}</span>
+                </div>
+              </div>
+              <div className="h-px bg-outline-variant/5" />
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-on-surface">Total Operating Expenses</span>
+                <span className="text-sm font-semibold text-error">-{formatCurrency(report.totalOperatingExpenses)}</span>
+              </div>
+
+              {/* Net Profit */}
+              <div className="h-px bg-outline-variant/5" />
+              <div className="pt-2 text-sm font-bold uppercase tracking-widest text-outline">Net Profit</div>
+              <div className="flex items-center justify-between">
+                <span className="text-lg font-bold text-on-surface">Net Profit</span>
+                <span className="text-3xl font-black text-[#82ff99]">{formatCurrency(report.netProfit)}</span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-outline">Profit Margin</span>
+                <span className="text-sm font-medium text-on-surface-variant">{report.profitMargin.toFixed(1)}%</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-outline">Order Count</span>
+                <span className="text-sm font-medium text-on-surface-variant">{report.orderCount.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Chart + Summary Stats */}
+        <div className="space-y-4 lg:col-span-5">
+          {/* Profit Trend Chart */}
+          <div className="rounded-xl border border-outline-variant/5 bg-surface-container-low p-6">
+            <div className="mb-4">
+              <h2 className="text-lg font-bold text-on-surface">Profit Trend</h2>
+              <p className="text-sm text-on-surface-variant">Revenue vs Profit by month</p>
+            </div>
             {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={500}>
+              <ResponsiveContainer width="100%" height={320}>
                 <BarChart data={chartData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    className="stroke-zinc-200 dark:stroke-zinc-800"
+                  <CartesianGrid strokeDasharray="3 3" stroke="#75757c" strokeOpacity={0.15} />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fill: "#acaab1", fontSize: 12 }}
+                    axisLine={{ stroke: "#75757c", strokeOpacity: 0.2 }}
+                    tickLine={false}
                   />
-                  <XAxis dataKey="category" className="text-xs" />
-                  <YAxis className="text-xs" />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="current" fill="#2563eb" name={currentMonth} />
-                  <Bar dataKey="previous" fill="#a1a1aa" name={previousMonth} />
+                  <YAxis
+                    tick={{ fill: "#acaab1", fontSize: 12 }}
+                    axisLine={{ stroke: "#75757c", strokeOpacity: 0.2 }}
+                    tickLine={false}
+                    tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#2b2930",
+                      border: "1px solid rgba(117, 117, 124, 0.2)",
+                      borderRadius: "8px",
+                      color: "#e7e4ec",
+                    }}
+                    formatter={(value: number) => [formatCurrency(value)]}
+                  />
+                  <Bar dataKey="Revenue" fill="#6b6a70" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Profit" fill="#73f08c" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex h-[500px] items-center justify-center text-sm text-zinc-500">
-                Not enough trend data for comparison
+              <div className="flex h-[320px] items-center justify-center text-sm text-outline">
+                Not enough trend data for chart
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+
+          {/* Summary Stats */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="rounded-xl border border-outline-variant/5 bg-surface-container-low p-5">
+              <span className="text-sm font-medium text-on-surface-variant">Operating Margin</span>
+              <div className="mt-2 text-2xl font-bold text-on-surface">{operatingMargin}%</div>
+            </div>
+            <div className="rounded-xl border border-outline-variant/5 bg-surface-container-low p-5">
+              <span className="text-sm font-medium text-on-surface-variant">CAC Ratio</span>
+              <div className="mt-2 text-2xl font-bold text-on-surface">{cacRatio}x</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

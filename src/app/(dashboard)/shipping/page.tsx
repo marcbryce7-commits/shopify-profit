@@ -2,12 +2,7 @@
 
 import { useState } from "react";
 import { Mail, Clock, CheckCircle, AlertCircle, Play, Upload, Loader2 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useApi, apiPost } from "@/hooks/use-api";
 
@@ -53,6 +48,7 @@ export default function ShippingPage() {
   const [autoScan, setAutoScan] = useState(true);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
+  const [activeTab, setActiveTab] = useState<"review" | "history" | "upload" | "settings">("review");
 
   const handleRunAgent = async () => {
     setRunning(true);
@@ -70,7 +66,7 @@ export default function ShippingPage() {
   if (loading) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+        <Loader2 className="h-8 w-8 animate-spin text-on-surface-variant" />
       </div>
     );
   }
@@ -78,8 +74,13 @@ export default function ShippingPage() {
   if (error) {
     return (
       <div className="flex h-[50vh] flex-col items-center justify-center gap-2">
-        <p className="text-sm text-red-600">{error}</p>
-        <Button variant="outline" onClick={refetch}>Retry</Button>
+        <p className="text-sm text-error">{error}</p>
+        <button
+          onClick={refetch}
+          className="rounded-lg border border-outline-variant/10 bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-high/50"
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -102,157 +103,174 @@ export default function ShippingPage() {
     return `${hours} hours ago`;
   };
 
+  const tabs = [
+    { key: "review" as const, label: "Review Queue" },
+    { key: "history" as const, label: "Processing History" },
+    { key: "upload" as const, label: "Manual Upload" },
+    { key: "settings" as const, label: "Settings" },
+  ];
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Shipping Agent</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          <h1 className="text-3xl font-extrabold text-on-surface">Shipping Agent</h1>
+          <p className="mt-1 text-sm text-on-surface-variant">
             AI-powered shipping cost reconciliation from invoices and emails
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <Label htmlFor="auto-scan">Auto-scan every 6h</Label>
-            <Switch id="auto-scan" checked={autoScan} onCheckedChange={setAutoScan} />
+            <span className="text-xs font-medium text-on-surface-variant">Auto-scan every 6h</span>
+            <Switch checked={autoScan} onCheckedChange={setAutoScan} />
           </div>
-          <Button onClick={handleRunAgent} disabled={running}>
+          <button
+            onClick={handleRunAgent}
+            disabled={running}
+            className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-primary to-primary/80 px-4 py-2.5 text-sm font-medium text-on-primary transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
             {running ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Play className="mr-2 h-4 w-4" />
+              <Play className="h-4 w-4" />
             )}
             Run Agent Now
-          </Button>
+          </button>
         </div>
       </div>
 
+      {/* 4 Status Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-              Email Connection
-            </CardTitle>
-            <Mail className="h-4 w-4 text-zinc-500" />
-          </CardHeader>
-          <CardContent>
+        <div className="rounded-xl bg-surface-container-low p-5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium uppercase tracking-wider text-on-surface-variant">Email Accounts</span>
+            <Mail className="h-4 w-4 text-on-surface-variant" />
+          </div>
+          <div className="mt-3">
             {activeAccount ? (
               <>
-                <Badge variant="success">Connected</Badge>
-                <p className="mt-1 text-xs text-zinc-500">{activeAccount.emailAddress}</p>
+                <span className="inline-flex items-center rounded-full bg-tertiary-dim/15 px-2.5 py-0.5 text-[11px] font-semibold text-tertiary-dim">
+                  Connected
+                </span>
+                <p className="mt-1 text-xs text-on-surface-variant">{activeAccount.emailAddress}</p>
               </>
             ) : (
-              <Badge variant="outline">Not Connected</Badge>
+              <span className="inline-flex items-center rounded-full border border-outline-variant/20 px-2.5 py-0.5 text-[11px] font-semibold text-on-surface-variant">
+                Not Connected
+              </span>
             )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-              Last Scan
-            </CardTitle>
-            <Clock className="h-4 w-4 text-zinc-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-lg font-semibold">
-              {formatTimeAgo(activeAccount?.lastScannedAt ?? null)}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-              Matched
-            </CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-lg font-semibold">{matchedCount} invoices matched</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-              Pending Review
-            </CardTitle>
-            <AlertCircle className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-lg font-semibold">{pendingReview.length} need approval</div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-surface-container-low p-5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium uppercase tracking-wider text-on-surface-variant">Last Scan</span>
+            <Clock className="h-4 w-4 text-on-surface-variant" />
+          </div>
+          <div className="mt-3 text-lg font-semibold text-on-surface">
+            {formatTimeAgo(activeAccount?.lastScannedAt ?? null)}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-tertiary-dim/20 bg-surface-container-low p-5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium uppercase tracking-wider text-on-surface-variant">Matched</span>
+            <CheckCircle className="h-4 w-4 text-tertiary-dim" />
+          </div>
+          <div className="mt-3 text-lg font-semibold text-on-surface">{matchedCount} invoices matched</div>
+        </div>
+
+        <div className="rounded-xl border border-error/20 bg-surface-container-low p-5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium uppercase tracking-wider text-on-surface-variant">Pending Review</span>
+            <AlertCircle className="h-4 w-4 text-error" />
+          </div>
+          <div className="mt-3 text-lg font-semibold text-on-surface">{pendingReview.length} need approval</div>
+        </div>
       </div>
 
-      <Card>
-        <Tabs defaultValue="review">
-          <CardHeader>
-            <TabsList>
-              <TabsTrigger value="review">Review Queue</TabsTrigger>
-              <TabsTrigger value="history">Processing History</TabsTrigger>
-              <TabsTrigger value="upload">Manual Upload</TabsTrigger>
-              <TabsTrigger value="fedex">FedEx</TabsTrigger>
-            </TabsList>
-          </CardHeader>
-          <CardContent>
-            <TabsContent value="review" className="mt-0">
+      {/* Tab Card */}
+      <div className="overflow-hidden rounded-xl bg-surface-container-low">
+        {/* Tab Bar */}
+        <div className="flex border-b border-outline-variant/5 px-6">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`relative px-4 py-4 text-sm font-medium transition-colors ${
+                activeTab === tab.key
+                  ? "text-primary"
+                  : "text-on-surface-variant hover:text-on-surface"
+              }`}
+            >
+              {tab.label}
+              {activeTab === tab.key && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-primary" />
+              )}
+            </button>
+          ))}
+        </div>
+
+        <div className="p-6">
+          {/* Review Queue Tab */}
+          {activeTab === "review" && (
+            <>
               {selectedItems.length > 0 && (
-                <div className="mb-4 flex items-center justify-between rounded-lg bg-zinc-100 p-3 dark:bg-zinc-800">
-                  <span className="text-sm font-medium">
+                <div className="mb-4 flex items-center justify-between rounded-lg bg-surface-container p-3">
+                  <span className="text-sm font-medium text-on-surface">
                     {selectedItems.length} selected
                   </span>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="outline">
+                    <button className="rounded-lg border border-outline-variant/10 bg-surface-container-low px-3 py-1.5 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container-high/50">
                       Approve All
-                    </Button>
-                    <Button size="sm" variant="outline">
+                    </button>
+                    <button className="rounded-lg border border-outline-variant/10 bg-surface-container-low px-3 py-1.5 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container-high/50">
                       Reject All
-                    </Button>
+                    </button>
                   </div>
                 </div>
               )}
               {pendingReview.length === 0 ? (
-                <div className="py-12 text-center text-sm text-zinc-500">
+                <div className="py-12 text-center text-sm text-on-surface-variant">
                   No invoices pending review.
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                        <th className="w-12 pb-3"></th>
-                        <th className="pb-3 text-left text-xs font-medium text-zinc-500">
-                          Invoice #
+                      <tr className="bg-surface-container-high/50">
+                        <th className="w-12 px-4 py-3"></th>
+                        <th className="px-4 py-3 text-left text-[11px] uppercase tracking-wider font-bold text-on-surface-variant">
+                          Invoice ID
                         </th>
-                        <th className="pb-3 text-left text-xs font-medium text-zinc-500">
+                        <th className="px-4 py-3 text-left text-[11px] uppercase tracking-wider font-bold text-on-surface-variant">
                           Supplier
                         </th>
-                        <th className="pb-3 text-right text-xs font-medium text-zinc-500">
+                        <th className="px-4 py-3 text-right text-[11px] uppercase tracking-wider font-bold text-on-surface-variant">
                           Amount
                         </th>
-                        <th className="pb-3 text-left text-xs font-medium text-zinc-500">
-                          Matched Order
+                        <th className="px-4 py-3 text-left text-[11px] uppercase tracking-wider font-bold text-on-surface-variant">
+                          AI Confidence
                         </th>
-                        <th className="pb-3 text-left text-xs font-medium text-zinc-500">
-                          Confidence
-                        </th>
-                        <th className="pb-3 text-right text-xs font-medium text-zinc-500">
-                          Actions
+                        <th className="px-4 py-3 text-right text-[11px] uppercase tracking-wider font-bold text-on-surface-variant">
+                          Action
                         </th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-outline-variant/5">
                       {pendingReview.map((item) => {
                         const ext = item.extractedData;
                         const confidence = ext?.confidence ?? 0;
                         return (
                           <tr
                             key={item.id}
-                            className="border-b border-zinc-100 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800/50"
+                            className="transition-colors hover:bg-surface-container-high/30"
                           >
-                            <td className="py-3">
+                            <td className="px-4 py-3.5">
                               <input
                                 type="checkbox"
-                                className="rounded"
+                                className="h-4 w-4 rounded border-outline-variant accent-primary"
                                 checked={selectedItems.includes(item.id)}
                                 onChange={(e) => {
                                   if (e.target.checked) {
@@ -263,40 +281,40 @@ export default function ShippingPage() {
                                 }}
                               />
                             </td>
-                            <td className="py-3 text-sm">{ext?.invoice ?? item.emailSubject}</td>
-                            <td className="py-3 text-sm">{ext?.supplier ?? item.sender}</td>
-                            <td className="py-3 text-right text-sm">
+                            <td className="px-4 py-3.5 text-sm font-medium text-on-surface">
+                              {ext?.invoice ?? item.emailSubject}
+                            </td>
+                            <td className="px-4 py-3.5 text-sm text-on-surface-variant">
+                              {ext?.supplier ?? item.sender}
+                            </td>
+                            <td className="px-4 py-3.5 text-right text-sm font-medium text-on-surface">
                               ${(ext?.amount ?? 0).toFixed(2)}
                             </td>
-                            <td className="py-3 text-sm text-blue-600">{ext?.order ?? "—"}</td>
-                            <td className="py-3">
-                              <div className="flex items-center gap-2">
-                                <div className="h-2 w-20 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+                            <td className="px-4 py-3.5">
+                              <div className="flex items-center gap-3">
+                                <div className="h-2 w-24 overflow-hidden rounded-full bg-surface-container-highest/50">
                                   <div
-                                    className={`h-full ${
+                                    className={`h-full rounded-full transition-all ${
                                       confidence > 80
-                                        ? "bg-green-600"
+                                        ? "bg-tertiary-dim"
                                         : confidence > 50
                                           ? "bg-yellow-500"
-                                          : "bg-red-600"
+                                          : "bg-error"
                                     }`}
                                     style={{ width: `${confidence}%` }}
                                   />
                                 </div>
-                                <span className="text-xs">{confidence}%</span>
+                                <span className="text-xs font-medium text-on-surface-variant">{confidence}%</span>
                               </div>
                             </td>
-                            <td className="py-3 text-right">
+                            <td className="px-4 py-3.5 text-right">
                               <div className="flex justify-end gap-2">
-                                <Button size="sm" variant="outline">
+                                <button className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-on-primary transition-colors hover:bg-primary/90">
                                   Approve
-                                </Button>
-                                <Button size="sm" variant="outline">
+                                </button>
+                                <button className="rounded-lg border border-outline-variant/10 bg-surface-container px-3 py-1.5 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container-high/50">
                                   Reject
-                                </Button>
-                                <Button size="sm" variant="ghost">
-                                  Edit
-                                </Button>
+                                </button>
                               </div>
                             </td>
                           </tr>
@@ -306,98 +324,99 @@ export default function ShippingPage() {
                   </table>
                 </div>
               )}
-            </TabsContent>
+            </>
+          )}
 
-            <TabsContent value="history" className="mt-0">
+          {/* Processing History Tab */}
+          {activeTab === "history" && (
+            <>
               {recentHistory.length === 0 ? (
-                <div className="py-12 text-center text-sm text-zinc-500">
+                <div className="py-12 text-center text-sm text-on-surface-variant">
                   No processing history yet.
                 </div>
               ) : (
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                      <th className="pb-3 text-left text-xs font-medium text-zinc-500">Date</th>
-                      <th className="pb-3 text-right text-xs font-medium text-zinc-500">
-                        Emails Scanned
-                      </th>
-                      <th className="pb-3 text-right text-xs font-medium text-zinc-500">
-                        Invoices Found
-                      </th>
-                      <th className="pb-3 text-right text-xs font-medium text-zinc-500">
-                        Matched
-                      </th>
-                      <th className="pb-3 text-right text-xs font-medium text-zinc-500">
-                        Errors
-                      </th>
-                      <th className="pb-3 text-right text-xs font-medium text-zinc-500">
-                        Duration
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentHistory.map((run) => {
-                      const ext = run.extractedData;
-                      return (
-                        <tr
-                          key={run.id}
-                          className="border-b border-zinc-100 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800/50"
-                        >
-                          <td className="py-3 text-sm">
-                            {new Date(run.processedAt ?? run.receivedAt).toLocaleString()}
-                          </td>
-                          <td className="py-3 text-right text-sm">{ext?.scanned ?? 0}</td>
-                          <td className="py-3 text-right text-sm">{ext?.found ?? 0}</td>
-                          <td className="py-3 text-right text-sm">{ext?.matched ?? 0}</td>
-                          <td
-                            className={`py-3 text-right text-sm ${
-                              (ext?.errors ?? 0) > 0 ? "text-red-600" : ""
-                            }`}
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-surface-container-high/50">
+                        <th className="px-4 py-3 text-left text-[11px] uppercase tracking-wider font-bold text-on-surface-variant">Date</th>
+                        <th className="px-4 py-3 text-right text-[11px] uppercase tracking-wider font-bold text-on-surface-variant">Emails Scanned</th>
+                        <th className="px-4 py-3 text-right text-[11px] uppercase tracking-wider font-bold text-on-surface-variant">Invoices Found</th>
+                        <th className="px-4 py-3 text-right text-[11px] uppercase tracking-wider font-bold text-on-surface-variant">Matched</th>
+                        <th className="px-4 py-3 text-right text-[11px] uppercase tracking-wider font-bold text-on-surface-variant">Errors</th>
+                        <th className="px-4 py-3 text-right text-[11px] uppercase tracking-wider font-bold text-on-surface-variant">Duration</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-outline-variant/5">
+                      {recentHistory.map((run) => {
+                        const ext = run.extractedData;
+                        return (
+                          <tr
+                            key={run.id}
+                            className="transition-colors hover:bg-surface-container-high/30"
                           >
-                            {ext?.errors ?? 0}
-                          </td>
-                          <td className="py-3 text-right text-sm">{ext?.duration ?? "—"}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </TabsContent>
-
-            <TabsContent value="upload" className="mt-0">
-              <div className="flex min-h-[300px] items-center justify-center rounded-lg border-2 border-dashed border-zinc-300 dark:border-zinc-700">
-                <div className="flex flex-col items-center gap-4 text-center">
-                  <Upload className="h-12 w-12 text-zinc-300 dark:text-zinc-700" />
-                  <div>
-                    <p className="font-medium">Drop a PDF or CSV invoice here</p>
-                    <p className="text-sm text-zinc-500">
-                      Supported: PDF, CSV (FedEx billing format)
-                    </p>
-                  </div>
-                  <Button>Choose File</Button>
+                            <td className="px-4 py-3.5 text-sm text-on-surface">
+                              {new Date(run.processedAt ?? run.receivedAt).toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3.5 text-right text-sm text-on-surface-variant">{ext?.scanned ?? 0}</td>
+                            <td className="px-4 py-3.5 text-right text-sm text-on-surface-variant">{ext?.found ?? 0}</td>
+                            <td className="px-4 py-3.5 text-right text-sm text-on-surface-variant">{ext?.matched ?? 0}</td>
+                            <td className={`px-4 py-3.5 text-right text-sm ${(ext?.errors ?? 0) > 0 ? "text-error font-medium" : "text-on-surface-variant"}`}>
+                              {ext?.errors ?? 0}
+                            </td>
+                            <td className="px-4 py-3.5 text-right text-sm text-on-surface-variant">{ext?.duration ?? "--"}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-              </div>
-            </TabsContent>
+              )}
+            </>
+          )}
 
-            <TabsContent value="fedex" className="mt-0">
-              <div className="space-y-4">
-                <div className="rounded-lg bg-yellow-50 p-4 dark:bg-yellow-900/20">
-                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                    <strong>Limitation notice:</strong> FedEx public APIs do not expose
-                    actual billed amounts or post-shipment adjustments. Use the email
-                    agent or upload FedEx billing CSV for 100% accuracy.
+          {/* Manual Upload Tab */}
+          {activeTab === "upload" && (
+            <div className="flex min-h-[300px] items-center justify-center rounded-xl border-2 border-dashed border-outline-variant/20">
+              <div className="flex flex-col items-center gap-4 text-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-container">
+                  <Upload className="h-8 w-8 text-on-surface-variant" />
+                </div>
+                <div>
+                  <p className="font-medium text-on-surface">Drop a PDF or CSV invoice here</p>
+                  <p className="mt-1 text-sm text-on-surface-variant">
+                    Supported: PDF, CSV (FedEx billing format)
                   </p>
                 </div>
-                <div className="flex gap-3">
-                  <Button>Connect FedEx Account</Button>
-                  <Button variant="outline">Upload FedEx Billing CSV</Button>
-                </div>
+                <button className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary transition-colors hover:bg-primary/90">
+                  Choose File
+                </button>
               </div>
-            </TabsContent>
-          </CardContent>
-        </Tabs>
-      </Card>
+            </div>
+          )}
+
+          {/* Settings Tab (FedEx) */}
+          {activeTab === "settings" && (
+            <div className="space-y-4">
+              <div className="rounded-lg bg-yellow-900/20 p-4">
+                <p className="text-sm text-yellow-400">
+                  <strong>Limitation notice:</strong> FedEx public APIs do not expose
+                  actual billed amounts or post-shipment adjustments. Use the email
+                  agent or upload FedEx billing CSV for 100% accuracy.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary transition-colors hover:bg-primary/90">
+                  Connect FedEx Account
+                </button>
+                <button className="rounded-lg border border-outline-variant/10 bg-surface-container px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-high/50">
+                  Upload FedEx Billing CSV
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -548,6 +548,27 @@ export const storesRelations = relations(stores, ({ one, many }) => ({
   taxRecords: many(taxRecords),
 }));
 
+// ─── Site Content (CMS) ─────────────────────────────────────────────────────
+
+export const siteContent = pgTable(
+  "site_content",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    key: text("key").notNull().unique(),
+    value: text("value").notNull().default(""),
+    section: text("section").notNull().default("global"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("site_content_section_idx").on(table.section),
+    uniqueIndex("site_content_key_idx").on(table.key),
+  ]
+);
+
+// ─── Relations ──────────────────────────────────────────────────────────────
+
 export const ordersRelations = relations(orders, ({ one, many }) => ({
   store: one(stores, { fields: [orders.storeId], references: [stores.id] }),
   lineItems: many(orderLineItems),

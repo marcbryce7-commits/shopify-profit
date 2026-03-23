@@ -1,29 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Mail, Plus, Trash2, Loader2 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Mail, Plus, Trash2, Loader2, User, Key, Bell, DollarSign, Settings, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { useApi, apiPost, apiDelete } from "@/hooks/use-api";
 
@@ -68,9 +46,18 @@ interface SettingsResponse {
   emailAccounts: EmailAccount[];
 }
 
+const tabs = [
+  { id: "account", label: "Account", icon: User },
+  { id: "costs", label: "Custom Costs", icon: DollarSign },
+  { id: "email", label: "Email Connection", icon: Mail },
+  { id: "api", label: "API Keys", icon: Key },
+  { id: "notifications", label: "Notifications", icon: Bell },
+];
+
 export default function SettingsPage() {
   const { data, loading, error, refetch } = useApi<SettingsResponse>("/api/settings");
 
+  const [activeTab, setActiveTab] = useState("account");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -140,23 +127,27 @@ export default function SettingsPage() {
   };
 
   const handleToggleRule = (id: string) => {
-    // Optimistic toggle in the UI; in a real app you'd also persist this
     toast.success("Rule toggled");
   };
 
   if (loading) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+        <Loader2 className="h-8 w-8 animate-spin text-[#acaab1]" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex h-[50vh] flex-col items-center justify-center gap-2">
-        <p className="text-sm text-red-600">{error}</p>
-        <Button variant="outline" onClick={refetch}>Retry</Button>
+      <div className="flex h-[50vh] flex-col items-center justify-center gap-4">
+        <p className="text-sm text-[#ee7d77]">{error}</p>
+        <button
+          onClick={refetch}
+          className="px-4 py-2 rounded-lg border border-[#47474e]/30 text-[#e7e4ec] text-sm font-medium hover:bg-[#25252b] transition-colors"
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -165,305 +156,376 @@ export default function SettingsPage() {
   const emailAccounts = data?.emailAccounts ?? [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Settings</h1>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          Manage your account and application preferences
-        </p>
+        <h1 className="text-3xl font-extrabold tracking-tight text-[#e7e4ec]">Settings</h1>
+        <p className="text-sm text-[#acaab1] mt-1">Manage your account and application preferences</p>
       </div>
 
-      <Card>
-        <Tabs defaultValue="account">
-          <CardHeader>
-            <TabsList>
-              <TabsTrigger value="account">Account</TabsTrigger>
-              <TabsTrigger value="costs">Custom Costs</TabsTrigger>
-              <TabsTrigger value="email">Email Connection</TabsTrigger>
-              <TabsTrigger value="api">API Keys</TabsTrigger>
-              <TabsTrigger value="notifications">Notifications</TabsTrigger>
-            </TabsList>
-          </CardHeader>
-          <CardContent>
-            <TabsContent value="account" className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" value={email} disabled />
-                <p className="text-xs text-zinc-500">Email cannot be changed</p>
-              </div>
-              <div className="flex justify-end">
-                <Button onClick={handleSaveAccount}>Save Changes</Button>
-              </div>
-            </TabsContent>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Sidebar Tabs */}
+        <div className="lg:col-span-3">
+          <nav className="bg-[#131316] rounded-xl border border-[#47474e]/10 overflow-hidden">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-3.5 text-left text-sm font-medium transition-colors ${
+                    isActive
+                      ? "bg-[#25252b] text-[#e7e4ec] border-l-2 border-[#c6c6c7]"
+                      : "text-[#acaab1] hover:bg-[#19191d] hover:text-[#e7e4ec] border-l-2 border-transparent"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {tab.label}
+                  <ChevronRight className={`h-3.5 w-3.5 ml-auto transition-opacity ${isActive ? "opacity-100" : "opacity-0"}`} />
+                </button>
+              );
+            })}
+          </nav>
+        </div>
 
-            <TabsContent value="costs" className="space-y-4">
-              <div className="flex items-center justify-between">
+        {/* Content Area */}
+        <div className="lg:col-span-9">
+          <div className="bg-[#131316] rounded-xl border border-[#47474e]/10 p-6 lg:p-8">
+            {/* Account Tab */}
+            {activeTab === "account" && (
+              <div className="space-y-6">
                 <div>
-                  <h3 className="font-semibold">Cost Rules</h3>
-                  <p className="text-sm text-zinc-500">
-                    Add custom costs to include in profit calculations
-                  </p>
+                  <h2 className="text-lg font-bold text-[#e7e4ec]">Account</h2>
+                  <p className="text-sm text-[#acaab1] mt-1">Update your personal details</p>
                 </div>
-                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                  <DialogTrigger
-                    render={
-                      <Button>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Cost Rule
-                      </Button>
-                    }
-                  />
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add Cost Rule</DialogTitle>
-                      <DialogDescription>
-                        Configure a custom cost to include in profit calculations
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="rule-name">Rule Name</Label>
-                        <Input
-                          id="rule-name"
-                          value={ruleName}
-                          onChange={(e) => setRuleName(e.target.value)}
-                          placeholder="e.g., Packaging Cost"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="cost-type">Cost Type</Label>
-                        <Select value={costType} onValueChange={(v) => v && setCostType(v)}>
-                          <SelectTrigger id="cost-type">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="per-order">Per Order</SelectItem>
-                            <SelectItem value="percentage">
-                              Percentage of Revenue
-                            </SelectItem>
-                            <SelectItem value="fixed">Fixed Monthly</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="amount">Amount</Label>
-                        <Input
-                          id="amount"
-                          type="number"
-                          value={amount}
-                          onChange={(e) => setAmount(e.target.value)}
-                          placeholder="0.00"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="applies-to">Applies To</Label>
-                        <Select value={appliesTo} onValueChange={(v) => v && setAppliesTo(v)}>
-                          <SelectTrigger id="applies-to">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Orders</SelectItem>
-                            <SelectItem value="sku">Specific SKU</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          onClick={() => setDialogOpen(false)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button onClick={handleAddRule} disabled={addingRule}>
-                          {addingRule && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                          Add Rule
-                        </Button>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                <div className="space-y-4 max-w-md">
+                  <div className="space-y-2">
+                    <label htmlFor="name" className="block text-xs font-semibold text-[#acaab1] uppercase tracking-wider">Name</label>
+                    <input
+                      id="name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-[#25252b] border-none rounded-lg text-[#e7e4ec] text-sm placeholder-[#75757c] focus:outline-none focus:ring-1 focus:ring-[#75757c]"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="email" className="block text-xs font-semibold text-[#acaab1] uppercase tracking-wider">Email</label>
+                    <input
+                      id="email"
+                      type="email"
+                      value={email}
+                      disabled
+                      className="w-full px-4 py-2.5 bg-[#25252b] border-none rounded-lg text-[#75757c] text-sm cursor-not-allowed"
+                    />
+                    <p className="text-xs text-[#75757c]">Email cannot be changed</p>
+                  </div>
+                  <div className="flex justify-end pt-2">
+                    <button
+                      onClick={handleSaveAccount}
+                      className="px-5 py-2.5 bg-gradient-to-b from-[#c6c6c7] to-[#454747] text-[#3f4041] text-sm font-bold rounded-lg hover:opacity-90 transition-opacity"
+                    >
+                      Save Changes
+                    </button>
+                  </div>
+                </div>
               </div>
+            )}
 
-              {costRules.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-zinc-300 p-8 text-center dark:border-zinc-700">
-                  <p className="text-sm text-zinc-500">
-                    No custom cost rules yet. Add one to include recurring costs in
-                    your profit calculations.
-                  </p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                        <th className="pb-3 text-left text-xs font-medium text-zinc-500">
-                          Name
-                        </th>
-                        <th className="pb-3 text-left text-xs font-medium text-zinc-500">
-                          Type
-                        </th>
-                        <th className="pb-3 text-left text-xs font-medium text-zinc-500">
-                          Amount
-                        </th>
-                        <th className="pb-3 text-left text-xs font-medium text-zinc-500">
-                          Applies To
-                        </th>
-                        <th className="pb-3 text-center text-xs font-medium text-zinc-500">
-                          Active
-                        </th>
-                        <th className="pb-3 text-right text-xs font-medium text-zinc-500">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {costRules.map((rule) => (
-                        <tr
-                          key={rule.id}
-                          className="border-b border-zinc-100 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800/50"
-                        >
-                          <td className="py-3 text-sm">{rule.name}</td>
-                          <td className="py-3">
-                            <Badge variant="outline">{rule.type}</Badge>
-                          </td>
-                          <td className="py-3 text-sm">
-                            {rule.type === "percentage" || rule.type === "Percentage of Revenue"
-                              ? `${rule.amount}%`
-                              : `$${rule.amount.toFixed(2)}`}
-                          </td>
-                          <td className="py-3 text-sm">{rule.appliesTo}</td>
-                          <td className="py-3 text-center">
-                            <Switch
-                              checked={rule.active}
-                              onCheckedChange={() => handleToggleRule(rule.id)}
-                            />
-                          </td>
-                          <td className="py-3 text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled={deletingId === rule.id}
-                              onClick={() => handleDeleteRule(rule.id)}
-                            >
-                              {deletingId === rule.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-4 w-4 text-red-600" />
-                              )}
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="email" className="space-y-4">
-              {emailAccounts.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-zinc-300 p-8 text-center dark:border-zinc-700">
-                  <p className="text-sm text-zinc-500">
-                    No email accounts connected. Connect one to enable the shipping agent.
-                  </p>
-                  <Button className="mt-4">Connect Email Account</Button>
-                </div>
-              ) : (
-                emailAccounts.map((account) => (
-                  <div
-                    key={account.id}
-                    className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
+            {/* Custom Costs Tab */}
+            {activeTab === "costs" && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold text-[#e7e4ec]">Cost Rules</h2>
+                    <p className="text-sm text-[#acaab1] mt-1">Add custom costs to include in profit calculations</p>
+                  </div>
+                  <button
+                    onClick={() => setDialogOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-b from-[#c6c6c7] to-[#454747] text-[#3f4041] text-sm font-bold rounded-lg hover:opacity-90 transition-opacity"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-500">
-                          <Mail className="h-5 w-5 text-white" />
+                    <Plus className="h-4 w-4" />
+                    Add Rule
+                  </button>
+                </div>
+
+                {costRules.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-[#47474e]/30 p-10 text-center">
+                    <DollarSign className="h-10 w-10 text-[#75757c] mx-auto mb-3" />
+                    <p className="text-sm text-[#acaab1]">
+                      No custom cost rules yet. Add one to include recurring costs in your profit calculations.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-[#47474e]/20">
+                          <th className="pb-3 text-left text-[11px] font-bold text-[#acaab1] uppercase tracking-wider">Name</th>
+                          <th className="pb-3 text-left text-[11px] font-bold text-[#acaab1] uppercase tracking-wider">Type</th>
+                          <th className="pb-3 text-left text-[11px] font-bold text-[#acaab1] uppercase tracking-wider">Amount</th>
+                          <th className="pb-3 text-left text-[11px] font-bold text-[#acaab1] uppercase tracking-wider">Applies To</th>
+                          <th className="pb-3 text-center text-[11px] font-bold text-[#acaab1] uppercase tracking-wider">Active</th>
+                          <th className="pb-3 text-right text-[11px] font-bold text-[#acaab1] uppercase tracking-wider">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {costRules.map((rule) => (
+                          <tr
+                            key={rule.id}
+                            className="border-b border-[#47474e]/10 hover:bg-[#19191d] transition-colors"
+                          >
+                            <td className="py-3.5 text-sm text-[#e7e4ec]">{rule.name}</td>
+                            <td className="py-3.5">
+                              <span className="px-2 py-1 text-xs font-medium text-[#acaab1] bg-[#25252b] rounded-md">
+                                {rule.type}
+                              </span>
+                            </td>
+                            <td className="py-3.5 text-sm text-[#e7e4ec]">
+                              {rule.type === "percentage" || rule.type === "Percentage of Revenue"
+                                ? `${rule.amount}%`
+                                : `$${rule.amount.toFixed(2)}`}
+                            </td>
+                            <td className="py-3.5 text-sm text-[#acaab1]">{rule.appliesTo}</td>
+                            <td className="py-3.5 text-center">
+                              <button
+                                onClick={() => handleToggleRule(rule.id)}
+                                className={`relative w-10 h-5 rounded-full transition-colors ${
+                                  rule.active ? "bg-[#73f08c]" : "bg-[#47474e]"
+                                }`}
+                              >
+                                <span
+                                  className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
+                                    rule.active ? "left-5" : "left-0.5"
+                                  }`}
+                                />
+                              </button>
+                            </td>
+                            <td className="py-3.5 text-right">
+                              <button
+                                disabled={deletingId === rule.id}
+                                onClick={() => handleDeleteRule(rule.id)}
+                                className="p-2 rounded-lg hover:bg-[#7f2927]/20 transition-colors"
+                              >
+                                {deletingId === rule.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin text-[#acaab1]" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4 text-[#ee7d77]" />
+                                )}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Add Rule Dialog */}
+                {dialogOpen && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                    <div className="bg-[#19191d] rounded-xl border border-[#47474e]/20 p-6 w-full max-w-md shadow-2xl">
+                      <h3 className="text-lg font-bold text-[#e7e4ec] mb-1">Add Cost Rule</h3>
+                      <p className="text-sm text-[#acaab1] mb-6">Configure a custom cost to include in profit calculations</p>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <label className="block text-xs font-semibold text-[#acaab1] uppercase tracking-wider">Rule Name</label>
+                          <input
+                            value={ruleName}
+                            onChange={(e) => setRuleName(e.target.value)}
+                            placeholder="e.g., Packaging Cost"
+                            className="w-full px-4 py-2.5 bg-[#25252b] border-none rounded-lg text-[#e7e4ec] text-sm placeholder-[#75757c] focus:outline-none focus:ring-1 focus:ring-[#75757c]"
+                          />
                         </div>
-                        <div>
-                          <div className="font-medium">{account.provider}</div>
-                          <div className="text-sm text-zinc-500">
-                            {account.active ? "Connected" : "Disconnected"}:{" "}
-                            {account.emailAddress}
-                          </div>
+                        <div className="space-y-2">
+                          <label className="block text-xs font-semibold text-[#acaab1] uppercase tracking-wider">Cost Type</label>
+                          <select
+                            value={costType}
+                            onChange={(e) => setCostType(e.target.value)}
+                            className="w-full px-4 py-2.5 bg-[#25252b] border-none rounded-lg text-[#e7e4ec] text-sm focus:outline-none focus:ring-1 focus:ring-[#75757c]"
+                          >
+                            <option value="per-order">Per Order</option>
+                            <option value="percentage">Percentage of Revenue</option>
+                            <option value="fixed">Fixed Monthly</option>
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="block text-xs font-semibold text-[#acaab1] uppercase tracking-wider">Amount</label>
+                          <input
+                            type="number"
+                            value={amount}
+                            onChange={(e) => setAmount(e.target.value)}
+                            placeholder="0.00"
+                            className="w-full px-4 py-2.5 bg-[#25252b] border-none rounded-lg text-[#e7e4ec] text-sm placeholder-[#75757c] focus:outline-none focus:ring-1 focus:ring-[#75757c]"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="block text-xs font-semibold text-[#acaab1] uppercase tracking-wider">Applies To</label>
+                          <select
+                            value={appliesTo}
+                            onChange={(e) => setAppliesTo(e.target.value)}
+                            className="w-full px-4 py-2.5 bg-[#25252b] border-none rounded-lg text-[#e7e4ec] text-sm focus:outline-none focus:ring-1 focus:ring-[#75757c]"
+                          >
+                            <option value="all">All Orders</option>
+                            <option value="sku">Specific SKU</option>
+                          </select>
+                        </div>
+                        <div className="flex justify-end gap-3 pt-2">
+                          <button
+                            onClick={() => setDialogOpen(false)}
+                            className="px-4 py-2.5 rounded-lg border border-[#47474e]/30 text-[#e7e4ec] text-sm font-medium hover:bg-[#25252b] transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleAddRule}
+                            disabled={addingRule}
+                            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-b from-[#c6c6c7] to-[#454747] text-[#3f4041] text-sm font-bold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                          >
+                            {addingRule && <Loader2 className="h-4 w-4 animate-spin" />}
+                            Add Rule
+                          </button>
                         </div>
                       </div>
-                      <Button variant="outline">Disconnect</Button>
                     </div>
                   </div>
-                ))
-              )}
-              <div className="space-y-2">
-                <h3 className="font-semibold">How it works</h3>
-                <ol className="space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
-                  <li>1. Connect your Gmail account</li>
-                  <li>2. ProfitPilot scans for shipping invoices</li>
-                  <li>3. Invoices are matched to orders automatically</li>
-                  <li>4. Review and approve matches</li>
-                  <li>
-                    5. Actual shipping costs update your profit calculations
-                  </li>
-                </ol>
+                )}
               </div>
-            </TabsContent>
+            )}
 
-            <TabsContent value="api" className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="taxjar">TaxJar API Key</Label>
-                <Input id="taxjar" type="password" placeholder="Enter API key" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="fedex-id">FedEx Client ID</Label>
-                <Input id="fedex-id" type="text" placeholder="Enter client ID" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="fedex-secret">FedEx Client Secret</Label>
-                <Input
-                  id="fedex-secret"
-                  type="password"
-                  placeholder="Enter client secret"
-                />
-              </div>
-              <div className="flex justify-end">
-                <Button>Save API Keys</Button>
-              </div>
-            </TabsContent>
+            {/* Email Connection Tab */}
+            {activeTab === "email" && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-lg font-bold text-[#e7e4ec]">Email Connection</h2>
+                  <p className="text-sm text-[#acaab1] mt-1">Connect email to enable the shipping cost agent</p>
+                </div>
 
-            <TabsContent value="notifications" className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="alert-email">Alert Email Address</Label>
-                <Input
-                  id="alert-email"
-                  type="email"
-                  value={alertEmail}
-                  onChange={(e) => setAlertEmail(e.target.value)}
-                  placeholder="alerts@example.com"
-                />
+                {emailAccounts.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-[#47474e]/30 p-10 text-center">
+                    <Mail className="h-10 w-10 text-[#75757c] mx-auto mb-3" />
+                    <p className="text-sm text-[#acaab1] mb-4">
+                      No email accounts connected. Connect one to enable the shipping agent.
+                    </p>
+                    <button className="px-5 py-2.5 bg-gradient-to-b from-[#c6c6c7] to-[#454747] text-[#3f4041] text-sm font-bold rounded-lg hover:opacity-90 transition-opacity">
+                      Connect Email Account
+                    </button>
+                  </div>
+                ) : (
+                  emailAccounts.map((account) => (
+                    <div
+                      key={account.id}
+                      className="rounded-xl bg-[#19191d] border border-[#47474e]/10 p-5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#7f2927]">
+                            <Mail className="h-5 w-5 text-[#ff9993]" />
+                          </div>
+                          <div>
+                            <div className="font-medium text-[#e7e4ec]">{account.provider}</div>
+                            <div className="text-sm text-[#acaab1]">
+                              {account.active ? (
+                                <span className="text-[#73f08c]">Connected</span>
+                              ) : (
+                                <span className="text-[#ee7d77]">Disconnected</span>
+                              )}
+                              {" · "}
+                              {account.emailAddress}
+                            </div>
+                          </div>
+                        </div>
+                        <button className="px-4 py-2 rounded-lg border border-[#47474e]/30 text-[#acaab1] text-sm font-medium hover:bg-[#25252b] transition-colors">
+                          Disconnect
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+
+                <div className="bg-[#19191d] rounded-xl p-5 border border-[#47474e]/10">
+                  <h3 className="font-bold text-[#e7e4ec] mb-3">How it works</h3>
+                  <ol className="space-y-2.5 text-sm text-[#acaab1]">
+                    <li className="flex gap-3"><span className="text-[#c6c6c7] font-bold">1.</span> Connect your Gmail account</li>
+                    <li className="flex gap-3"><span className="text-[#c6c6c7] font-bold">2.</span> ProfitPilot scans for shipping invoices</li>
+                    <li className="flex gap-3"><span className="text-[#c6c6c7] font-bold">3.</span> Invoices are matched to orders automatically</li>
+                    <li className="flex gap-3"><span className="text-[#c6c6c7] font-bold">4.</span> Review and approve matches</li>
+                    <li className="flex gap-3"><span className="text-[#c6c6c7] font-bold">5.</span> Actual shipping costs update your profit calculations</li>
+                  </ol>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">SMS Phone Number</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={alertPhone}
-                  onChange={(e) => setAlertPhone(e.target.value)}
-                  placeholder="+1 (555) 123-4567"
-                />
+            )}
+
+            {/* API Keys Tab */}
+            {activeTab === "api" && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-lg font-bold text-[#e7e4ec]">API Keys</h2>
+                  <p className="text-sm text-[#acaab1] mt-1">Connect third-party services</p>
+                </div>
+                <div className="space-y-4 max-w-md">
+                  <div className="space-y-2">
+                    <label htmlFor="taxjar" className="block text-xs font-semibold text-[#acaab1] uppercase tracking-wider">TaxJar API Key</label>
+                    <input id="taxjar" type="password" placeholder="Enter API key" className="w-full px-4 py-2.5 bg-[#25252b] border-none rounded-lg text-[#e7e4ec] text-sm placeholder-[#75757c] focus:outline-none focus:ring-1 focus:ring-[#75757c]" />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="fedex-id" className="block text-xs font-semibold text-[#acaab1] uppercase tracking-wider">FedEx Client ID</label>
+                    <input id="fedex-id" type="text" placeholder="Enter client ID" className="w-full px-4 py-2.5 bg-[#25252b] border-none rounded-lg text-[#e7e4ec] text-sm placeholder-[#75757c] focus:outline-none focus:ring-1 focus:ring-[#75757c]" />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="fedex-secret" className="block text-xs font-semibold text-[#acaab1] uppercase tracking-wider">FedEx Client Secret</label>
+                    <input id="fedex-secret" type="password" placeholder="Enter client secret" className="w-full px-4 py-2.5 bg-[#25252b] border-none rounded-lg text-[#e7e4ec] text-sm placeholder-[#75757c] focus:outline-none focus:ring-1 focus:ring-[#75757c]" />
+                  </div>
+                  <div className="flex justify-end pt-2">
+                    <button className="px-5 py-2.5 bg-gradient-to-b from-[#c6c6c7] to-[#454747] text-[#3f4041] text-sm font-bold rounded-lg hover:opacity-90 transition-opacity">
+                      Save API Keys
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div className="flex justify-end">
-                <Button>Save Notification Settings</Button>
+            )}
+
+            {/* Notifications Tab */}
+            {activeTab === "notifications" && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-lg font-bold text-[#e7e4ec]">Notifications</h2>
+                  <p className="text-sm text-[#acaab1] mt-1">Configure how you receive alerts</p>
+                </div>
+                <div className="space-y-4 max-w-md">
+                  <div className="space-y-2">
+                    <label htmlFor="alert-email" className="block text-xs font-semibold text-[#acaab1] uppercase tracking-wider">Alert Email Address</label>
+                    <input
+                      id="alert-email"
+                      type="email"
+                      value={alertEmail}
+                      onChange={(e) => setAlertEmail(e.target.value)}
+                      placeholder="alerts@example.com"
+                      className="w-full px-4 py-2.5 bg-[#25252b] border-none rounded-lg text-[#e7e4ec] text-sm placeholder-[#75757c] focus:outline-none focus:ring-1 focus:ring-[#75757c]"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="phone" className="block text-xs font-semibold text-[#acaab1] uppercase tracking-wider">SMS Phone Number</label>
+                    <input
+                      id="phone"
+                      type="tel"
+                      value={alertPhone}
+                      onChange={(e) => setAlertPhone(e.target.value)}
+                      placeholder="+1 (555) 123-4567"
+                      className="w-full px-4 py-2.5 bg-[#25252b] border-none rounded-lg text-[#e7e4ec] text-sm placeholder-[#75757c] focus:outline-none focus:ring-1 focus:ring-[#75757c]"
+                    />
+                  </div>
+                  <div className="flex justify-end pt-2">
+                    <button className="px-5 py-2.5 bg-gradient-to-b from-[#c6c6c7] to-[#454747] text-[#3f4041] text-sm font-bold rounded-lg hover:opacity-90 transition-opacity">
+                      Save Notification Settings
+                    </button>
+                  </div>
+                </div>
               </div>
-            </TabsContent>
-          </CardContent>
-        </Tabs>
-      </Card>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
