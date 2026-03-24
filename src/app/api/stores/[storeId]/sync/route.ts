@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+export const maxDuration = 300; // 5 minutes
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/api-auth";
@@ -42,6 +43,8 @@ export async function POST(
   }
 
   try {
+    console.log("Starting sync for store:", store.id, store.shopifyDomain);
+    console.log("Has access token:", !!store.shopifyAccessToken);
     const accessToken = decrypt(store.shopifyAccessToken);
     const client = new ShopifyClient(store.shopifyDomain, accessToken);
 
