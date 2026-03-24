@@ -3,6 +3,7 @@ const SHOPIFY_SCOPES = [
   "read_products",
   "read_inventory",
   "read_fulfillments",
+  "write_fulfillments",
   "read_shipping",
 ].join(",");
 
@@ -83,6 +84,101 @@ export class ShopifyClient {
         }
       }
     `);
+  }
+
+  async getFulfillmentOrders(shopifyOrderId: string) {
+    return this.graphql<{
+      order: {
+        fulfillmentOrders: {
+          edges: Array<{
+            node: {
+              id: string;
+              status: string;
+              lineItems: {
+                edges: Array<{
+                  node: {
+                    id: string;
+                    remainingQuantity: number;
+                  };
+                }>;
+              };
+            };
+          }>;
+        };
+      };
+    }>(`
+      query GetFulfillmentOrders($orderId: ID!) {
+        order(id: $orderId) {
+          fulfillmentOrders(first: 10) {
+            edges {
+              node {
+                id
+                status
+                lineItems(first: 50) {
+                  edges {
+                    node {
+                      id
+                      remainingQuantity
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `, { orderId: shopifyOrderId });
+  }
+
+  async createFulfillment(input: {
+    fulfillmentOrderId: string;
+    trackingNumber: string;
+    trackingCompany: string;
+    notifyCustomer: boolean;
+    lineItemsByFulfillmentOrder?: Array<{
+      fulfillmentOrderId: string;
+      fulfillmentOrderLineItems: Array<{ id: string; quantity: number }>;
+    }>;
+  }) {
+    return this.graphql<{
+      fulfillmentCreateV2: {
+        fulfillment: {
+          id: string;
+          status: string;
+          trackingInfo: Array<{ number: string; company: string; url: string }>;
+        } | null;
+        userErrors: Array<{ field: string[]; message: string }>;
+      };
+    }>(`
+      mutation FulfillmentCreateV2($fulfillment: FulfillmentV2Input!) {
+        fulfillmentCreateV2(fulfillment: $fulfillment) {
+          fulfillment {
+            id
+            status
+            trackingInfo {
+              number
+              company
+              url
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `, {
+      fulfillment: {
+        lineItemsByFulfillmentOrder: input.lineItemsByFulfillmentOrder || [{
+          fulfillmentOrderId: input.fulfillmentOrderId,
+        }],
+        notifyCustomer: input.notifyCustomer,
+        trackingInfo: {
+          number: input.trackingNumber,
+          company: input.trackingCompany,
+        },
+      },
+    });
   }
 
   async getOrders(cursor?: string, updatedAtMin?: string) {

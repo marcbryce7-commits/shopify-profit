@@ -502,6 +502,53 @@ export const alertSettings = pgTable("alert_settings", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// ─── Fulfillments ───────────────────────────────────────────────────────────
+
+export const carrierEnum = pgEnum("carrier", [
+  "fedex",
+  "ups",
+  "usps",
+  "dhl",
+  "other",
+]);
+
+export const fulfillmentStatusEnum = pgEnum("pp_fulfillment_status", [
+  "pending",
+  "fulfilled",
+  "failed",
+]);
+
+export const fulfillments = pgTable(
+  "fulfillments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    storeId: uuid("store_id")
+      .notNull()
+      .references(() => stores.id, { onDelete: "cascade" }),
+    shopifyFulfillmentId: text("shopify_fulfillment_id"),
+    trackingNumber: text("tracking_number").notNull(),
+    carrier: carrierEnum("carrier").notNull(),
+    shippingCostCharged: decimal("shipping_cost_charged", { precision: 12, scale: 2 }),
+    shippingCostActual: decimal("shipping_cost_actual", { precision: 12, scale: 2 }),
+    costVariance: decimal("cost_variance", { precision: 12, scale: 2 }),
+    invoiceMatch: boolean("invoice_match").default(false).notNull(),
+    invoiceId: uuid("invoice_id").references(() => shippingCostUpdates.id),
+    notifyCustomer: boolean("notify_customer").default(true).notNull(),
+    status: fulfillmentStatusEnum("status").default("pending").notNull(),
+    errorMessage: text("error_message"),
+    fulfilledAt: timestamp("fulfilled_at"),
+    fulfilledBy: uuid("fulfilled_by").references(() => users.id),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("fulfillments_order_idx").on(t.orderId),
+    index("fulfillments_store_idx").on(t.storeId),
+  ]
+);
+
 // ─── FedEx Lookups ───────────────────────────────────────────────────────────
 
 export const fedexLookups = pgTable("fedex_lookups", {
@@ -573,6 +620,12 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   store: one(stores, { fields: [orders.storeId], references: [stores.id] }),
   lineItems: many(orderLineItems),
   shippingUpdates: many(shippingCostUpdates),
+  fulfillments: many(fulfillments),
+}));
+
+export const fulfillmentsRelations = relations(fulfillments, ({ one }) => ({
+  order: one(orders, { fields: [fulfillments.orderId], references: [orders.id] }),
+  store: one(stores, { fields: [fulfillments.storeId], references: [stores.id] }),
 }));
 
 export const orderLineItemsRelations = relations(
