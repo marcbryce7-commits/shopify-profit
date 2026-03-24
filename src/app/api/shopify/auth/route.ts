@@ -30,7 +30,9 @@ export async function GET(req: NextRequest) {
   // Generate state for CSRF protection
   const state = randomBytes(16).toString("hex");
 
-  const response = NextResponse.redirect(getShopifyAuthUrl(shop, state));
+  const authUrl = getShopifyAuthUrl(shop, state);
+  console.log("Shopify OAuth redirect URL:", authUrl);
+  const response = NextResponse.redirect(authUrl);
   response.cookies.set("shopify_oauth_state", state, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
