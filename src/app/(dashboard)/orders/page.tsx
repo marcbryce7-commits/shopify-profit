@@ -90,9 +90,11 @@ function useDebounce(value: string, delay: number) {
   return debounced;
 }
 
-function formatCurrency(value: number | null | undefined): string {
+function formatCurrency(value: number | string | null | undefined): string {
   if (value == null) return "$0.00";
-  return `$${value.toFixed(2)}`;
+  const num = typeof value === "string" ? parseFloat(value) : value;
+  if (isNaN(num)) return "$0.00";
+  return `$${num.toFixed(2)}`;
 }
 
 function formatDate(dateStr: string): string {
