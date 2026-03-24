@@ -5,6 +5,7 @@ const SHOPIFY_SCOPES = [
   "read_fulfillments",
   "write_fulfillments",
   "read_shipping",
+  "read_customers",
 ].join(",");
 
 export function getShopifyAuthUrl(shop: string, state: string): string {
@@ -69,8 +70,12 @@ export class ShopifyClient {
     }
 
     const data = await res.json();
-    if (data.errors) {
+    // Only throw if there's no data at all — partial errors (like missing scopes) are OK
+    if (data.errors && !data.data) {
       throw new Error(`Shopify GraphQL errors: ${JSON.stringify(data.errors)}`);
+    }
+    if (data.errors) {
+      console.warn("Shopify GraphQL partial errors (non-fatal):", data.errors.length, "errors");
     }
 
     return data.data;
