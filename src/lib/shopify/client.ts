@@ -9,7 +9,8 @@ const SHOPIFY_SCOPES = [
 
 export function getShopifyAuthUrl(shop: string, state: string): string {
   const clientId = process.env.SHOPIFY_CLIENT_ID!;
-  const redirectUri = `${process.env.NEXTAUTH_URL}/api/shopify/callback`;
+  const baseUrl = process.env.NEXTAUTH_URL || process.env.AUTH_URL || "https://shopify-profit-production.up.railway.app";
+  const redirectUri = `${baseUrl}/api/shopify/callback`;
 
   return (
     `https://${shop}/admin/oauth/authorize?` +
