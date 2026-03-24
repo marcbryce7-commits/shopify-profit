@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import { serve } from "inngest/next";
 import { inngest, functions } from "@/lib/inngest";
 
