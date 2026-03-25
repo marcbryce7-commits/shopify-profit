@@ -287,7 +287,21 @@ export default function AdsPage() {
                   </span>
                 )}
                 <button
-                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                  onClick={() => {
+                    if (!platform.connected) {
+                      const routes: Record<string, string> = {
+                        google: "/api/ads/google/auth",
+                        meta: "/api/ads/meta/auth",
+                      };
+                      const route = routes[platform.key];
+                      if (route) {
+                        window.location.href = route;
+                      } else {
+                        alert(`${platform.name} integration coming soon`);
+                      }
+                    }
+                  }}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
                     platform.connected
                       ? "border border-outline-variant/10 bg-surface-container-low text-on-surface hover:bg-surface-container-high/50"
                       : "bg-primary text-on-primary hover:bg-primary/90"
