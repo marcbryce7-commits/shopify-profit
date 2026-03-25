@@ -254,7 +254,7 @@ async function scanGmail(
 
   // Search for shipping-related emails from last 7 days
   const query = encodeURIComponent(
-    'from:(fedex OR ups OR usps OR dhl OR "shipping invoice" OR "freight invoice" OR "billing statement") newer_than:7d'
+    '(fedex OR ups OR usps OR dhl OR shipping OR invoice OR freight OR tracking) newer_than:30d'
   );
 
   let listResponse = await fetch(
@@ -474,10 +474,12 @@ async function scanOutlook(
     Date.now() - 7 * 24 * 60 * 60 * 1000
   ).toISOString();
 
-  let listResponse = await fetch(
-    `https://graph.microsoft.com/v1.0/me/messages?$filter=receivedDateTime ge ${sevenDaysAgo}&$search="fedex OR ups OR usps OR dhl OR shipping invoice"&$top=50&$select=id,subject,from,receivedDateTime,body,hasAttachments`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  );
+  // Microsoft Graph can't combine $filter and $search — use $search only
+  const outlookUrl = `https://graph.microsoft.com/v1.0/me/messages?$search="fedex OR ups OR usps OR dhl OR shipping OR invoice OR freight"&$top=50&$select=id,subject,from,receivedDateTime,body,hasAttachments&$orderby=receivedDateTime desc`;
+
+  let listResponse = await fetch(outlookUrl, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
 
   // Token refresh on 401
   if (listResponse.status === 401) {
@@ -488,10 +490,14 @@ async function scanOutlook(
       return results;
     }
     accessToken = newToken;
-    listResponse = await fetch(
-      `https://graph.microsoft.com/v1.0/me/messages?$filter=receivedDateTime ge ${sevenDaysAgo}&$search="fedex OR ups OR usps OR dhl OR shipping invoice"&$top=50&$select=id,subject,from,receivedDateTime,body,hasAttachments`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
+    listResponse = await fetch(outlookUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  }
+
+  if (!listResponse.ok) {
+    const errBody = await listResponse.text();
+    console.error("Outlook list failed:", listResponse.status, errBody);
   }
 
   if (!listResponse.ok) {
