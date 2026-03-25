@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   const params = new URLSearchParams({
     client_id: metaAppId,
     redirect_uri: `${baseUrl}/api/ads/meta/callback`,
-    scope: "ads_read,ads_management",
+    scope: "business_management,ads_management",
     state,
   });
 
