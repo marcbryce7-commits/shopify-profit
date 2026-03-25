@@ -21,7 +21,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { useApi, apiPost, apiDelete } from "@/hooks/use-api";
+import { useApi, apiPost, apiDelete, apiPatch } from "@/hooks/use-api";
 
 interface Store {
   id: string;
@@ -29,6 +29,7 @@ interface Store {
   shopifyDomain: string;
   name: string;
   status: string;
+  poPrefix: string | null;
   lastSyncAt: string | null;
   createdAt: string;
 }
@@ -97,6 +98,16 @@ export default function StoresPage() {
       toast.error("Failed to remove store");
     } finally {
       setDeletingStoreId(null);
+    }
+  };
+
+  const handleSavePoPrefix = async (storeId: string, poPrefix: string) => {
+    try {
+      await apiPatch("/api/stores", { storeId, poPrefix });
+      toast.success("PO prefix saved");
+      refetch();
+    } catch {
+      toast.error("Failed to save PO prefix");
     }
   };
 
@@ -306,6 +317,34 @@ export default function StoresPage() {
                     <div className="ml-auto text-xs text-on-surface-variant">
                       Last sync: {formatLastSync(store.lastSyncAt)}
                     </div>
+                  </div>
+
+                  {/* PO Prefix / Email Search Settings */}
+                  <div className="rounded-lg bg-surface-container-high/30 p-3">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
+                      PO Prefix for Email Scanner
+                    </label>
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="e.g. RECOUT"
+                        defaultValue={store.poPrefix || ""}
+                        id={`po-${store.id}`}
+                        className="flex-1 rounded-lg bg-surface-container border-none px-3 py-1.5 text-sm text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                      />
+                      <button
+                        onClick={() => {
+                          const input = document.getElementById(`po-${store.id}`) as HTMLInputElement;
+                          handleSavePoPrefix(store.id, input?.value || "");
+                        }}
+                        className="rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+                      >
+                        Save
+                      </button>
+                    </div>
+                    <p className="mt-1 text-[10px] text-on-surface-variant/60">
+                      Scanner searches emails for PO prefix + order number (e.g. RECOUT1001), customer name, and order number
+                    </p>
                   </div>
 
                   {/* Action buttons */}

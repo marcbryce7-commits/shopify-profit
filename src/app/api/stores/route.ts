@@ -19,6 +19,23 @@ export async function GET() {
   return NextResponse.json({ stores: userStores, recentSyncs });
 }
 
+export async function PATCH(req: NextRequest) {
+  const authResult = await requireAuth();
+  if (authResult instanceof NextResponse) return authResult;
+
+  const { storeId, poPrefix } = await req.json();
+  if (!storeId) {
+    return NextResponse.json({ error: "storeId required" }, { status: 400 });
+  }
+
+  await db
+    .update(stores)
+    .set({ poPrefix: poPrefix || null })
+    .where(and(eq(stores.id, storeId), eq(stores.userId, authResult.userId)));
+
+  return NextResponse.json({ success: true });
+}
+
 export async function DELETE(req: NextRequest) {
   const authResult = await requireAuth();
   if (authResult instanceof NextResponse) return authResult;

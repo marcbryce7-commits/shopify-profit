@@ -168,16 +168,23 @@ async function refreshOutlookToken(account: { id: string; refreshToken: string |
 // ─── Build search queries from orders ───────────────────────────────────────
 
 function buildSearchTerms(
-  userOrders: { id: string; orderNumber: string }[],
+  userOrders: { id: string; orderNumber: string; customerName: string | null }[],
   poPrefix: string | null
 ): string[] {
   const terms: string[] = [];
+  const seen = new Set<string>();
   for (const order of userOrders) {
     const num = order.orderNumber.replace("#", "");
-    terms.push(num);
-    // Also search with PO prefix if configured
+    if (!seen.has(num)) { terms.push(num); seen.add(num); }
+    // PO prefix + number
     if (poPrefix) {
-      terms.push(`${poPrefix}${num}`);
+      const po = `${poPrefix}${num}`;
+      if (!seen.has(po)) { terms.push(po); seen.add(po); }
+    }
+    // Customer name (first + last, skip if generic)
+    if (order.customerName && order.customerName.length > 2 && !seen.has(order.customerName)) {
+      terms.push(order.customerName);
+      seen.add(order.customerName);
     }
   }
   return terms;
@@ -187,7 +194,7 @@ function buildSearchTerms(
 
 async function scanGmail(
   account: { id: string; accessToken: string; refreshToken: string | null; userId: string },
-  userOrders: { id: string; orderNumber: string }[],
+  userOrders: { id: string; orderNumber: string; customerName: string | null }[],
   poPrefix: string | null
 ): Promise<{ scanned: number; matched: number; pending: number; skipped: number }> {
   let accessToken = decrypt(account.accessToken);
@@ -371,7 +378,7 @@ async function scanGmail(
 
 async function scanOutlook(
   account: { id: string; accessToken: string; refreshToken: string | null; userId: string },
-  userOrders: { id: string; orderNumber: string }[],
+  userOrders: { id: string; orderNumber: string; customerName: string | null }[],
   poPrefix: string | null
 ): Promise<{ scanned: number; matched: number; pending: number; skipped: number }> {
   let accessToken = decrypt(account.accessToken);
@@ -558,7 +565,7 @@ export async function scanEmails(userId: string): Promise<ScanResults> {
   // Get user's orders for matching
   const storeIds = userStores.map((s) => s.id);
   const userOrders = storeIds.length > 0
-    ? await db.select({ id: orders.id, orderNumber: orders.orderNumber }).from(orders)
+    ? await db.select({ id: orders.id, orderNumber: orders.orderNumber, customerName: orders.customerName }).from(orders)
         .where(inArray(orders.storeId, storeIds))
     : [];
 
