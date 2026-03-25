@@ -220,13 +220,13 @@ async function scanGmail(
   const searchTerms = buildSearchTerms(userOrders.slice(0, 50), poPrefix); // Limit to recent 50 orders
   // Also include generic shipping keywords
   const orderQuery = searchTerms.map((t) => `"${t}"`).join(" OR ");
-  const fullQuery = `(${orderQuery} OR fedex OR ups OR usps OR "shipping invoice") newer_than:30d`;
+  const fullQuery = `(${orderQuery} OR fedex OR ups OR usps OR "shipping invoice") newer_than:365d`;
   const query = encodeURIComponent(fullQuery);
 
   console.log("Gmail search query (first 200 chars):", fullQuery.substring(0, 200));
 
   let listResponse = await fetch(
-    `https://www.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=50`,
+    `https://www.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=200`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
 
@@ -235,7 +235,7 @@ async function scanGmail(
     if (!newToken) return results;
     accessToken = newToken;
     listResponse = await fetch(
-      `https://www.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=50`,
+      `https://www.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=200`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
   }
@@ -418,7 +418,7 @@ async function scanOutlook(
 
   console.log("Outlook search (first 200 chars):", fullSearch.substring(0, 200));
 
-  const outlookUrl = `https://graph.microsoft.com/v1.0/me/messages?$search=%22${encodeURIComponent(fullSearch)}%22&$top=50&$select=id,subject,from,receivedDateTime,body,hasAttachments,webLink`;
+  const outlookUrl = `https://graph.microsoft.com/v1.0/me/messages?$search=%22${encodeURIComponent(fullSearch)}%22&$top=200&$select=id,subject,from,receivedDateTime,body,hasAttachments,webLink`;
 
   let listResponse = await fetch(outlookUrl, {
     headers: { Authorization: `Bearer ${accessToken}` },
