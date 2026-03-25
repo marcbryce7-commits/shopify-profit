@@ -483,21 +483,38 @@ async function scanOutlook(
         }
       }
 
-      // Match to order
+      // Match to order by: 1) PO/order number, 2) customer name, 3) customer email
       let matchedOrderId: string | null = null;
       let matchedOrderNumber: string | null = null;
+      let matchMethod: string | null = null;
+      const searchContent = (bodyText + " " + subject).toLowerCase();
       for (const order of userOrders) {
         const num = order.orderNumber.replace("#", "");
-        const poNum = poPrefix ? `${poPrefix}${num}` : null;
-        const searchContent = bodyText + " " + subject;
+        const poNum = poPrefix ? `${poPrefix}${num}`.toLowerCase() : null;
+
         if (
-          searchContent.includes(num) ||
           (poNum && searchContent.includes(poNum)) ||
+          searchContent.includes(num.toLowerCase()) ||
           extracted.orderReference === num ||
           extracted.orderReference === order.orderNumber
         ) {
           matchedOrderId = order.id;
           matchedOrderNumber = order.orderNumber;
+          matchMethod = poNum && searchContent.includes(poNum) ? `PO: ${poPrefix}${num}` : `Order #${num}`;
+          break;
+        }
+
+        if (order.customerName && order.customerName.length >= 3 && searchContent.includes(order.customerName.toLowerCase())) {
+          matchedOrderId = order.id;
+          matchedOrderNumber = order.orderNumber;
+          matchMethod = `Customer: ${order.customerName}`;
+          break;
+        }
+
+        if (order.customerEmail && searchContent.includes(order.customerEmail.toLowerCase())) {
+          matchedOrderId = order.id;
+          matchedOrderNumber = order.orderNumber;
+          matchMethod = `Email: ${order.customerEmail}`;
           break;
         }
       }
