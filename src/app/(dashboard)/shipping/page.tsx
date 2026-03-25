@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, Clock, CheckCircle, AlertCircle, Play, Upload, Loader2 } from "lucide-react";
+import { Mail, Clock, CheckCircle, AlertCircle, Play, Upload, Loader2, Plus, Trash2, ExternalLink } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { useApi, apiPost } from "@/hooks/use-api";
@@ -140,36 +140,15 @@ export default function ShippingPage() {
         </div>
       </div>
 
-      {/* 4 Status Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl bg-surface-container-low p-5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium uppercase tracking-wider text-on-surface-variant">Email Accounts</span>
-            <Mail className="h-4 w-4 text-on-surface-variant" />
-          </div>
-          <div className="mt-3">
-            {activeAccount ? (
-              <>
-                <span className="inline-flex items-center rounded-full bg-tertiary-dim/15 px-2.5 py-0.5 text-[11px] font-semibold text-tertiary-dim">
-                  Connected
-                </span>
-                <p className="mt-1 text-xs text-on-surface-variant">{activeAccount.emailAddress}</p>
-              </>
-            ) : (
-              <span className="inline-flex items-center rounded-full border border-outline-variant/20 px-2.5 py-0.5 text-[11px] font-semibold text-on-surface-variant">
-                Not Connected
-              </span>
-            )}
-          </div>
-        </div>
-
+      {/* 3 Status Cards */}
+      <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-xl bg-surface-container-low p-5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium uppercase tracking-wider text-on-surface-variant">Last Scan</span>
             <Clock className="h-4 w-4 text-on-surface-variant" />
           </div>
           <div className="mt-3 text-lg font-semibold text-on-surface">
-            {formatTimeAgo(activeAccount?.lastScannedAt ?? null)}
+            {formatTimeAgo(connectedAccounts.find((a) => a.lastScannedAt)?.lastScannedAt ?? null)}
           </div>
         </div>
 
@@ -188,6 +167,85 @@ export default function ShippingPage() {
           </div>
           <div className="mt-3 text-lg font-semibold text-on-surface">{pendingReview.length} need approval</div>
         </div>
+      </div>
+
+      {/* Connected Email Accounts */}
+      <div className="rounded-xl bg-surface-container-low p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-bold text-on-surface">Connected Email Accounts</h2>
+            <p className="text-xs text-on-surface-variant mt-0.5">Accounts scanned for shipping invoices</p>
+          </div>
+          <div className="flex gap-2">
+            <a
+              href="/api/email/google/auth"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-outline-variant/10 bg-surface-container px-3 py-2 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container-high/50"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Connect Gmail
+            </a>
+            <a
+              href="/api/email/outlook/auth"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-outline-variant/10 bg-surface-container px-3 py-2 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container-high/50"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Connect Outlook
+            </a>
+          </div>
+        </div>
+
+        {connectedAccounts.length === 0 ? (
+          <div className="py-8 text-center">
+            <Mail className="mx-auto h-10 w-10 text-on-surface-variant/30" />
+            <p className="mt-3 text-sm text-on-surface-variant">No email accounts connected yet.</p>
+            <p className="mt-1 text-xs text-on-surface-variant/60">Connect a Gmail or Outlook account to start scanning for shipping invoices.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {connectedAccounts.map((account) => (
+              <div
+                key={account.id}
+                className="flex items-center justify-between rounded-lg bg-surface-container p-4"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+                    account.provider === "gmail" ? "bg-red-500/10" : "bg-blue-500/10"
+                  }`}>
+                    <Mail className={`h-5 w-5 ${
+                      account.provider === "gmail" ? "text-red-400" : "text-blue-400"
+                    }`} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-on-surface">{account.emailAddress}</p>
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+                        account.active
+                          ? "bg-tertiary-dim/15 text-tertiary-dim"
+                          : "bg-surface-container-highest text-on-surface-variant"
+                      }`}>
+                        {account.active ? "Active" : "Paused"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <span className="text-[11px] text-on-surface-variant capitalize">{account.provider}</span>
+                      <span className="text-[11px] text-on-surface-variant">
+                        Last scan: {formatTimeAgo(account.lastScannedAt)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    className="rounded-lg border border-outline-variant/10 bg-surface-container-low p-2 text-on-surface-variant transition-colors hover:text-error hover:border-error/20"
+                    title="Remove account"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Tab Card */}
