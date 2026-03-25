@@ -186,13 +186,18 @@ function buildSearchTerms(
   const seen = new Set<string>();
   for (const order of userOrders) {
     const num = order.orderNumber.replace("#", "");
+    // Add the full order number (e.g. RECOUT824989)
     if (!seen.has(num)) { terms.push(num); seen.add(num); }
-    // PO prefix + number
-    if (poPrefix) {
+    // Add just the numeric part if order already has a prefix
+    if (poPrefix && num.toUpperCase().startsWith(poPrefix.toUpperCase())) {
+      const justNum = num.substring(poPrefix.length);
+      if (justNum && !seen.has(justNum)) { terms.push(justNum); seen.add(justNum); }
+    } else if (poPrefix) {
+      // Add prefix + number only if order doesn't already have it
       const po = `${poPrefix}${num}`;
       if (!seen.has(po)) { terms.push(po); seen.add(po); }
     }
-    // Customer name (first + last, skip if generic)
+    // Customer name (3+ chars to avoid false positives)
     if (order.customerName && order.customerName.length > 2 && !seen.has(order.customerName)) {
       terms.push(order.customerName);
       seen.add(order.customerName);
@@ -405,15 +410,15 @@ async function scanOutlook(
   let accessToken = decrypt(account.accessToken);
   const results = { scanned: 0, matched: 0, pending: 0, skipped: 0 };
 
-  // Build search terms from order numbers
-  const searchTerms = buildSearchTerms(userOrders.slice(0, 30), poPrefix);
-  // Outlook $search supports simple keyword queries
-  const searchQuery = searchTerms.slice(0, 20).map((t) => `"${t}"`).join(" OR ");
-  const fullSearch = `${searchQuery} OR "shipping" OR "invoice" OR "fedex" OR "ups" OR "usps"`;
+  // Build search terms — use just a few key terms for Outlook (has query length limits)
+  const searchTerms = buildSearchTerms(userOrders.slice(0, 15), poPrefix);
+  // Outlook $search: simple keywords joined by OR, no nested quotes
+  const keyTerms = searchTerms.slice(0, 10);
+  const fullSearch = keyTerms.join(" OR ");
 
   console.log("Outlook search (first 200 chars):", fullSearch.substring(0, 200));
 
-  const outlookUrl = `https://graph.microsoft.com/v1.0/me/messages?$search="${encodeURIComponent(fullSearch)}"&$top=50&$select=id,subject,from,receivedDateTime,body,hasAttachments,webLink`;
+  const outlookUrl = `https://graph.microsoft.com/v1.0/me/messages?$search=%22${encodeURIComponent(fullSearch)}%22&$top=50&$select=id,subject,from,receivedDateTime,body,hasAttachments,webLink`;
 
   let listResponse = await fetch(outlookUrl, {
     headers: { Authorization: `Bearer ${accessToken}` },
