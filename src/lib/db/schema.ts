@@ -117,6 +117,7 @@ export const stores = pgTable("stores", {
   shopifyAccessToken: text("shopify_access_token").notNull(), // encrypted
   name: text("name").notNull(),
   status: storeStatusEnum("status").default("active").notNull(),
+  poPrefix: text("po_prefix"), // e.g. "RECOUT" — used to search emails for RECOUT1001
   lastSyncAt: timestamp("last_sync_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
