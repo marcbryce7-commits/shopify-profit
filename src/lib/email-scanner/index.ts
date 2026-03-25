@@ -39,12 +39,21 @@ function extractFromText(text: string): Omit<ExtractedInvoice, "emailLink" | "em
   const fedexMatch = text.match(/\b(\d{12,22})\b/);
   const trackingNumber = upsMatch?.[1] || uspsMatch?.[1] || fedexMatch?.[1] || null;
 
-  // Dollar amounts — find the largest as likely total
+  // Dollar amounts — find the largest as likely total, with surrounding context
   const amountMatches = text.match(/\$[\d,]+\.\d{2}/g);
   let totalAmount: number | null = null;
+  let amountContext: string | null = null;
   if (amountMatches) {
     const amounts = amountMatches.map((a) => parseFloat(a.replace(/[$,]/g, "")));
     totalAmount = Math.max(...amounts);
+    // Find the context around the matched amount
+    const amountStr = amountMatches[amounts.indexOf(totalAmount)];
+    const idx = text.indexOf(amountStr);
+    if (idx >= 0) {
+      const start = Math.max(0, idx - 80);
+      const end = Math.min(text.length, idx + amountStr.length + 80);
+      amountContext = text.substring(start, end).replace(/\s+/g, " ").trim();
+    }
   }
 
   // Invoice numbers
@@ -67,7 +76,7 @@ function extractFromText(text: string): Omit<ExtractedInvoice, "emailLink" | "em
   else if (textLower.includes("usps") || textLower.includes("united states postal")) supplierName = "USPS";
   else if (textLower.includes("dhl")) supplierName = "DHL";
 
-  return { invoiceNumber, supplierName, totalAmount, trackingNumber, orderReference };
+  return { invoiceNumber, supplierName, totalAmount, trackingNumber, orderReference, amountContext };
 }
 
 // ─── Gemini PDF extraction ──────────────────────────────────────────────────
@@ -84,7 +93,7 @@ async function extractFromPdfWithGemini(pdfBase64: string): Promise<Omit<Extract
       body: JSON.stringify({
         contents: [{
           parts: [
-            { text: 'Extract shipping invoice data from this PDF. Return ONLY valid JSON with: invoice_number (string|null), supplier_name (string|null), total_amount (number|null), tracking_number (string|null), order_reference (string|null). If not found, set null.' },
+            { text: 'Extract shipping invoice data from this PDF. Return ONLY valid JSON with: invoice_number (string|null), supplier_name (string|null), total_amount (number|null), tracking_number (string|null), order_reference (string|null), amount_context (string|null — the exact line or sentence from the PDF where you found the total amount). If not found, set null.' },
             { inline_data: { mime_type: "application/pdf", data: pdfBase64 } },
           ],
         }],
@@ -100,7 +109,7 @@ async function extractFromPdfWithGemini(pdfBase64: string): Promise<Omit<Extract
   const result = await response.json();
   const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
   const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return { invoiceNumber: null, supplierName: null, totalAmount: null, trackingNumber: null, orderReference: null };
+  if (!jsonMatch) return { invoiceNumber: null, supplierName: null, totalAmount: null, trackingNumber: null, orderReference: null, amountContext: null };
 
   try {
     const p = JSON.parse(jsonMatch[0]);
@@ -110,9 +119,10 @@ async function extractFromPdfWithGemini(pdfBase64: string): Promise<Omit<Extract
       totalAmount: typeof p.total_amount === "number" ? p.total_amount : null,
       trackingNumber: p.tracking_number || null,
       orderReference: p.order_reference || null,
+      amountContext: p.amount_context || null,
     };
   } catch {
-    return { invoiceNumber: null, supplierName: null, totalAmount: null, trackingNumber: null, orderReference: null };
+    return { invoiceNumber: null, supplierName: null, totalAmount: null, trackingNumber: null, orderReference: null, amountContext: null };
   }
 }
 
@@ -286,6 +296,7 @@ async function scanGmail(
                 totalAmount: pdfExtracted.totalAmount || extracted.totalAmount,
                 trackingNumber: pdfExtracted.trackingNumber || extracted.trackingNumber,
                 orderReference: pdfExtracted.orderReference || extracted.orderReference,
+                amountContext: pdfExtracted.amountContext || extracted.amountContext,
               };
             }
           } catch (e) {
@@ -347,6 +358,7 @@ async function scanGmail(
           order: matchedOrderNumber || extracted.orderReference,
           tracking: extracted.trackingNumber,
           confidence: matchedOrderId ? 90 : 50,
+          amountContext: extracted.amountContext,
           emailLink,
           snippet,
         },
@@ -514,6 +526,7 @@ async function scanOutlook(
           order: matchedOrderNumber || extracted.orderReference,
           tracking: extracted.trackingNumber,
           confidence: matchedOrderId ? 90 : 50,
+          amountContext: extracted.amountContext,
           emailLink,
           snippet,
         },

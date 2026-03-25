@@ -290,6 +290,7 @@ export default function ShippingPage() {
                     const amount = Number(ext?.amount ?? 0);
                     const supplier = (ext?.supplier as string) || item.sender;
                     const invoice = ext?.invoice as string | null;
+                    const amountContext = ext?.amountContext as string | null;
 
                     return (
                       <div key={item.id} className="rounded-lg bg-surface-container p-4">
@@ -363,6 +364,23 @@ export default function ShippingPage() {
                             <p className="text-sm text-on-surface mt-0.5 truncate">{tracking || "—"}</p>
                           </div>
                         </div>
+
+                        {/* AI Reasoning */}
+                        {amountContext && (
+                          <details className="mt-3 group">
+                            <summary className="cursor-pointer text-[11px] font-semibold text-primary hover:text-primary-dim select-none">
+                              View AI reasoning
+                            </summary>
+                            <div className="mt-2 rounded-lg bg-surface-container-highest/30 border border-outline-variant/10 px-3 py-2">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">
+                                Amount found in context:
+                              </p>
+                              <p className="text-xs text-on-surface font-mono leading-relaxed">
+                                &quot;...{amountContext}...&quot;
+                              </p>
+                            </div>
+                          </details>
+                        )}
 
                         {/* Actions */}
                         <div className="mt-3 flex items-center justify-end gap-2">
