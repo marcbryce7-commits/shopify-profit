@@ -462,6 +462,7 @@ async function scanOutlook(
                     totalAmount: pdfExtracted.totalAmount || extracted.totalAmount,
                     trackingNumber: pdfExtracted.trackingNumber || extracted.trackingNumber,
                     orderReference: pdfExtracted.orderReference || extracted.orderReference,
+                    amountContext: pdfExtracted.amountContext || extracted.amountContext,
                   };
                 } catch (e) {
                   console.error("PDF extraction failed:", e);
