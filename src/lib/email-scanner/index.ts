@@ -17,6 +17,7 @@ interface ExtractedInvoice {
   totalAmount: number | null;
   trackingNumber: string | null;
   orderReference: string | null;
+  amountContext: string | null;
   emailLink: string | null;
   emailSubject: string;
   emailSnippet: string;
