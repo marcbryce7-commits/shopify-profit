@@ -62,22 +62,32 @@ export async function GET(req: NextRequest) {
     }
 
     const tokens = await tokenResponse.json();
-    const { access_token, refresh_token, expires_in } = tokens;
+    const { access_token, refresh_token, expires_in, id_token } = tokens;
 
-    // Get user email from Microsoft Graph
-    const profileResponse = await fetch(
-      "https://graph.microsoft.com/v1.0/me",
-      {
-        headers: { Authorization: `Bearer ${access_token}` },
-      }
-    );
-
-    if (!profileResponse.ok) {
-      throw new Error("Failed to fetch Microsoft profile");
+    // Extract email from id_token JWT payload (avoids Graph API permission issues)
+    let emailAddress = "";
+    if (id_token) {
+      try {
+        const payload = JSON.parse(Buffer.from(id_token.split(".")[1], "base64").toString());
+        emailAddress = payload.email || payload.preferred_username || payload.upn || "";
+      } catch {}
     }
 
-    const profile = await profileResponse.json();
-    const emailAddress = profile.mail || profile.userPrincipalName;
+    // Fallback to Graph API if no email in token
+    if (!emailAddress) {
+      const profileResponse = await fetch(
+        "https://graph.microsoft.com/v1.0/me",
+        { headers: { Authorization: `Bearer ${access_token}` } }
+      );
+      if (profileResponse.ok) {
+        const profile = await profileResponse.json();
+        emailAddress = profile.mail || profile.userPrincipalName || "";
+      }
+    }
+
+    if (!emailAddress) {
+      throw new Error("Could not determine email address");
+    }
 
     // Encrypt tokens
     const encryptedAccessToken = encrypt(access_token);
