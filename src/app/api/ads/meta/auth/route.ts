@@ -13,8 +13,13 @@ export async function GET(req: NextRequest) {
   const state = randomBytes(16).toString("hex");
 
   const baseUrl = getBaseUrl(req);
+  const metaAppId = process.env.META_APP_ID;
+  console.log("META_APP_ID value:", metaAppId, "length:", metaAppId?.length);
+  if (!metaAppId) {
+    return NextResponse.json({ error: "META_APP_ID not configured" }, { status: 500 });
+  }
   const params = new URLSearchParams({
-    client_id: process.env.META_APP_ID!,
+    client_id: metaAppId,
     redirect_uri: `${baseUrl}/api/ads/meta/callback`,
     scope: "ads_read,ads_management",
     state,
