@@ -337,7 +337,7 @@ export default function StoresPage() {
                           const input = document.getElementById(`po-${store.id}`) as HTMLInputElement;
                           handleSavePoPrefix(store.id, input?.value || "");
                         }}
-                        className="rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+                        className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-on-primary transition-colors hover:bg-primary-dim"
                       >
                         Save
                       </button>
