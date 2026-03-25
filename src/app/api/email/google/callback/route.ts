@@ -12,7 +12,7 @@ const getBaseUrl = () =>
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    return NextResponse.redirect(new URL("/login", getBaseUrl()));
   }
 
   const { searchParams } = req.nextUrl;
@@ -24,8 +24,9 @@ export async function GET(req: NextRequest) {
   const savedState = cookieStore.get("google_email_oauth_state")?.value;
 
   if (!code || !state || state !== savedState) {
+    console.error("Gmail OAuth state mismatch:", { hasCode: !!code, hasState: !!state, stateMatch: state === savedState, savedState: savedState ? "exists" : "missing" });
     return NextResponse.redirect(
-      new URL("/shipping?error=invalid_oauth", req.url)
+      new URL("/shipping?error=invalid_oauth", getBaseUrl())
     );
   }
 
@@ -114,12 +115,12 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.redirect(
-      new URL("/shipping?success=gmail_connected", req.url)
+      new URL("/shipping?success=gmail_connected", getBaseUrl())
     );
   } catch (error) {
     console.error("Google OAuth callback error:", error);
     return NextResponse.redirect(
-      new URL("/shipping?error=connection_failed", req.url)
+      new URL("/shipping?error=connection_failed", getBaseUrl())
     );
   }
 }
