@@ -179,7 +179,7 @@ async function refreshOutlookToken(account: { id: string; refreshToken: string |
 // ─── Build search queries from orders ───────────────────────────────────────
 
 function buildSearchTerms(
-  userOrders: { id: string; orderNumber: string; customerName: string | null }[],
+  userOrders: { id: string; orderNumber: string; customerName: string | null; customerEmail: string | null }[],
   poPrefix: string | null
 ): string[] {
   const terms: string[] = [];
@@ -205,7 +205,7 @@ function buildSearchTerms(
 
 async function scanGmail(
   account: { id: string; accessToken: string; refreshToken: string | null; userId: string },
-  userOrders: { id: string; orderNumber: string; customerName: string | null }[],
+  userOrders: { id: string; orderNumber: string; customerName: string | null; customerEmail: string | null }[],
   poPrefix: string | null
 ): Promise<{ scanned: number; matched: number; pending: number; skipped: number }> {
   let accessToken = decrypt(account.accessToken);
@@ -306,43 +306,50 @@ async function scanGmail(
         }
       }
 
-      // Match to order — check by order number in email content
+      // Match to order by: 1) PO/order number, 2) customer name, 3) customer email
       let matchedOrderId: string | null = null;
       let matchedOrderNumber: string | null = null;
+      let matchMethod: string | null = null;
+      const searchContent = (bodyText + " " + subject).toLowerCase();
       for (const order of userOrders) {
         const num = order.orderNumber.replace("#", "");
-        const poNum = poPrefix ? `${poPrefix}${num}` : null;
-        const searchContent = bodyText + " " + subject;
+        const poNum = poPrefix ? `${poPrefix}${num}`.toLowerCase() : null;
+
+        // 1) PO number (prefix+number) or just order number
         if (
-          searchContent.includes(num) ||
           (poNum && searchContent.includes(poNum)) ||
+          searchContent.includes(num.toLowerCase()) ||
           extracted.orderReference === num ||
           extracted.orderReference === order.orderNumber
         ) {
           matchedOrderId = order.id;
           matchedOrderNumber = order.orderNumber;
+          matchMethod = poNum && searchContent.includes(poNum) ? `PO: ${poPrefix}${num}` : `Order #${num}`;
+          break;
+        }
+
+        // 2) Customer name (must be 3+ chars to avoid false positives)
+        if (order.customerName && order.customerName.length >= 3 && searchContent.includes(order.customerName.toLowerCase())) {
+          matchedOrderId = order.id;
+          matchedOrderNumber = order.orderNumber;
+          matchMethod = `Customer: ${order.customerName}`;
+          break;
+        }
+
+        // 3) Customer email
+        if (order.customerEmail && searchContent.includes(order.customerEmail.toLowerCase())) {
+          matchedOrderId = order.id;
+          matchedOrderNumber = order.orderNumber;
+          matchMethod = `Email: ${order.customerEmail}`;
           break;
         }
       }
 
-      const hasData = extracted.totalAmount || extracted.trackingNumber || extracted.invoiceNumber || matchedOrderId;
-
-      if (!hasData) {
-        await db.insert(emailLogs).values({
-          userId: account.userId,
-          connectedEmailId: account.id,
-          emailSubject: subject,
-          sender,
-          receivedAt: dateStr ? new Date(dateStr) : new Date(),
-          processedAt: new Date(),
-          status: "skipped",
-          extractedData: { ...extracted, emailLink, snippet },
-        });
+      // ONLY ingest if we matched an actual order/PO number — skip everything else
+      if (!matchedOrderId) {
         results.skipped++;
         continue;
       }
-
-      const status = matchedOrderId ? "matched" : "pending";
 
       await db.insert(emailLogs).values({
         userId: account.userId,
@@ -351,14 +358,15 @@ async function scanGmail(
         sender,
         receivedAt: dateStr ? new Date(dateStr) : new Date(),
         processedAt: new Date(),
-        status,
+        status: "matched",
         extractedData: {
           invoice: extracted.invoiceNumber,
           supplier: extracted.supplierName,
           amount: extracted.totalAmount,
           order: matchedOrderNumber || extracted.orderReference,
           tracking: extracted.trackingNumber,
-          confidence: matchedOrderId ? 90 : 50,
+          confidence: 90,
+          matchMethod,
           amountContext: extracted.amountContext,
           emailLink,
           snippet,
@@ -391,7 +399,7 @@ async function scanGmail(
 
 async function scanOutlook(
   account: { id: string; accessToken: string; refreshToken: string | null; userId: string },
-  userOrders: { id: string; orderNumber: string; customerName: string | null }[],
+  userOrders: { id: string; orderNumber: string; customerName: string | null; customerEmail: string | null }[],
   poPrefix: string | null
 ): Promise<{ scanned: number; matched: number; pending: number; skipped: number }> {
   let accessToken = decrypt(account.accessToken);
@@ -494,24 +502,11 @@ async function scanOutlook(
         }
       }
 
-      const hasData = extracted.totalAmount || extracted.trackingNumber || extracted.invoiceNumber || matchedOrderId;
-
-      if (!hasData) {
-        await db.insert(emailLogs).values({
-          userId: account.userId,
-          connectedEmailId: account.id,
-          emailSubject: subject,
-          sender,
-          receivedAt,
-          processedAt: new Date(),
-          status: "skipped",
-          extractedData: { ...extracted, emailLink, snippet },
-        });
+      // ONLY ingest if we matched an actual order/PO number
+      if (!matchedOrderId) {
         results.skipped++;
         continue;
       }
-
-      const status = matchedOrderId ? "matched" : "pending";
 
       await db.insert(emailLogs).values({
         userId: account.userId,
@@ -520,14 +515,15 @@ async function scanOutlook(
         sender,
         receivedAt,
         processedAt: new Date(),
-        status,
+        status: "matched",
         extractedData: {
           invoice: extracted.invoiceNumber,
           supplier: extracted.supplierName,
           amount: extracted.totalAmount,
           order: matchedOrderNumber || extracted.orderReference,
           tracking: extracted.trackingNumber,
-          confidence: matchedOrderId ? 90 : 50,
+          confidence: 90,
+          matchMethod,
           amountContext: extracted.amountContext,
           emailLink,
           snippet,
@@ -580,7 +576,12 @@ export async function scanEmails(userId: string): Promise<ScanResults> {
   // Get user's orders for matching
   const storeIds = userStores.map((s) => s.id);
   const userOrders = storeIds.length > 0
-    ? await db.select({ id: orders.id, orderNumber: orders.orderNumber, customerName: orders.customerName }).from(orders)
+    ? await db.select({
+        id: orders.id,
+        orderNumber: orders.orderNumber,
+        customerName: orders.customerName,
+        customerEmail: orders.customerEmail,
+      }).from(orders)
         .where(inArray(orders.storeId, storeIds))
     : [];
 

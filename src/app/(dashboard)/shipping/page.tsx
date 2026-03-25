@@ -291,6 +291,7 @@ export default function ShippingPage() {
                     const supplier = (ext?.supplier as string) || item.sender;
                     const invoice = ext?.invoice as string | null;
                     const amountContext = ext?.amountContext as string | null;
+                    const matchMethod = ext?.matchMethod as string | null;
 
                     return (
                       <div key={item.id} className="rounded-lg bg-surface-container p-4">
@@ -344,6 +345,9 @@ export default function ShippingPage() {
                           <div>
                             <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Order/PO</span>
                             <p className="text-sm font-medium text-on-surface mt-0.5">{orderRef || "—"}</p>
+                            {matchMethod && (
+                              <span className="text-[10px] text-tertiary-dim">Matched by: {matchMethod}</span>
+                            )}
                           </div>
                           <div>
                             <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Supplier</span>
