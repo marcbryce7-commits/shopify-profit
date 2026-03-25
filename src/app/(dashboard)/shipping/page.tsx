@@ -53,11 +53,11 @@ export default function ShippingPage() {
   const handleRunAgent = async () => {
     setRunning(true);
     try {
-      await apiPost("/api/shipping");
-      toast.success("Shipping agent started successfully");
+      const res = await apiPost("/api/shipping/scan");
+      toast.success(res.message || "Scan complete");
       refetch();
     } catch {
-      toast.error("Failed to start shipping agent");
+      toast.error("Failed to run email scan");
     } finally {
       setRunning(false);
     }
