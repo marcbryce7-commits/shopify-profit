@@ -248,6 +248,33 @@ export const adSpendDaily = pgTable(
   ]
 );
 
+// ─── Ad Campaign Store Map ──────────────────────────────────────────────────
+
+export const adCampaignStoreMap = pgTable(
+  "ad_campaign_store_map",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    storeId: uuid("store_id")
+      .notNull()
+      .references(() => stores.id, { onDelete: "cascade" }),
+    platform: adPlatformEnum("platform").notNull(),
+    campaignId: text("campaign_id").notNull(),
+    campaignName: text("campaign_name"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("campaign_store_map_unique").on(
+      t.userId,
+      t.platform,
+      t.campaignId
+    ),
+    index("campaign_store_map_store_idx").on(t.storeId),
+  ]
+);
+
 // ─── Ad Platform Connections ─────────────────────────────────────────────────
 
 export const adPlatformConnections = pgTable("ad_platform_connections", {
