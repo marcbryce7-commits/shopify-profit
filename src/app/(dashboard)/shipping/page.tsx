@@ -274,112 +274,108 @@ export default function ShippingPage() {
           {/* Review Queue Tab */}
           {activeTab === "review" && (
             <>
-              {selectedItems.length > 0 && (
-                <div className="mb-4 flex items-center justify-between rounded-lg bg-surface-container p-3">
-                  <span className="text-sm font-medium text-on-surface">
-                    {selectedItems.length} selected
-                  </span>
-                  <div className="flex gap-2">
-                    <button className="rounded-lg border border-outline-variant/10 bg-surface-container-low px-3 py-1.5 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container-high/50">
-                      Approve All
-                    </button>
-                    <button className="rounded-lg border border-outline-variant/10 bg-surface-container-low px-3 py-1.5 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container-high/50">
-                      Reject All
-                    </button>
-                  </div>
-                </div>
-              )}
               {pendingReview.length === 0 ? (
                 <div className="py-12 text-center text-sm text-on-surface-variant">
-                  No invoices pending review.
+                  No invoices pending review. Click &quot;Run Agent Now&quot; to scan your emails.
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="bg-surface-container-high/50">
-                        <th className="w-12 px-4 py-3"></th>
-                        <th className="px-4 py-3 text-left text-[11px] uppercase tracking-wider font-bold text-on-surface-variant">
-                          Invoice ID
-                        </th>
-                        <th className="px-4 py-3 text-left text-[11px] uppercase tracking-wider font-bold text-on-surface-variant">
-                          Supplier
-                        </th>
-                        <th className="px-4 py-3 text-right text-[11px] uppercase tracking-wider font-bold text-on-surface-variant">
-                          Amount
-                        </th>
-                        <th className="px-4 py-3 text-left text-[11px] uppercase tracking-wider font-bold text-on-surface-variant">
-                          AI Confidence
-                        </th>
-                        <th className="px-4 py-3 text-right text-[11px] uppercase tracking-wider font-bold text-on-surface-variant">
-                          Action
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-outline-variant/5">
-                      {pendingReview.map((item) => {
-                        const ext = item.extractedData;
-                        const confidence = ext?.confidence ?? 0;
-                        return (
-                          <tr
-                            key={item.id}
-                            className="transition-colors hover:bg-surface-container-high/30"
-                          >
-                            <td className="px-4 py-3.5">
-                              <input
-                                type="checkbox"
-                                className="h-4 w-4 rounded border-outline-variant accent-primary"
-                                checked={selectedItems.includes(item.id)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedItems([...selectedItems, item.id]);
-                                  } else {
-                                    setSelectedItems(selectedItems.filter((id) => id !== item.id));
-                                  }
-                                }}
-                              />
-                            </td>
-                            <td className="px-4 py-3.5 text-sm font-medium text-on-surface">
-                              {ext?.invoice ?? item.emailSubject}
-                            </td>
-                            <td className="px-4 py-3.5 text-sm text-on-surface-variant">
-                              {ext?.supplier ?? item.sender}
-                            </td>
-                            <td className="px-4 py-3.5 text-right text-sm font-medium text-on-surface">
-                              ${(ext?.amount ?? 0).toFixed(2)}
-                            </td>
-                            <td className="px-4 py-3.5">
-                              <div className="flex items-center gap-3">
-                                <div className="h-2 w-24 overflow-hidden rounded-full bg-surface-container-highest/50">
-                                  <div
-                                    className={`h-full rounded-full transition-all ${
-                                      confidence > 80
-                                        ? "bg-tertiary-dim"
-                                        : confidence > 50
-                                          ? "bg-yellow-500"
-                                          : "bg-error"
-                                    }`}
-                                    style={{ width: `${confidence}%` }}
-                                  />
-                                </div>
-                                <span className="text-xs font-medium text-on-surface-variant">{confidence}%</span>
+                <div className="space-y-3">
+                  {pendingReview.map((item) => {
+                    const ext = item.extractedData as Record<string, unknown> | null;
+                    const confidence = Number(ext?.confidence ?? 0);
+                    const emailLink = ext?.emailLink as string | null;
+                    const snippet = ext?.snippet as string | null;
+                    const orderRef = ext?.order as string | null;
+                    const tracking = ext?.tracking as string | null;
+                    const amount = Number(ext?.amount ?? 0);
+                    const supplier = (ext?.supplier as string) || item.sender;
+                    const invoice = ext?.invoice as string | null;
+
+                    return (
+                      <div key={item.id} className="rounded-lg bg-surface-container p-4">
+                        {/* Top row: subject + link */}
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-sm font-semibold text-on-surface truncate">
+                                {item.emailSubject || "No subject"}
+                              </h4>
+                              {emailLink && (
+                                <a
+                                  href={emailLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex-shrink-0 text-primary hover:text-primary-dim"
+                                  title="View original email"
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                </a>
+                              )}
+                            </div>
+                            <p className="text-xs text-on-surface-variant mt-0.5">
+                              From: {item.sender} &middot; {new Date(item.receivedAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <div className="flex items-center gap-1.5">
+                              <div className="h-2 w-16 overflow-hidden rounded-full bg-surface-container-highest/50">
+                                <div
+                                  className={`h-full rounded-full ${
+                                    confidence > 80 ? "bg-tertiary-dim" : confidence > 50 ? "bg-yellow-500" : "bg-error"
+                                  }`}
+                                  style={{ width: `${confidence}%` }}
+                                />
                               </div>
-                            </td>
-                            <td className="px-4 py-3.5 text-right">
-                              <div className="flex justify-end gap-2">
-                                <button className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-on-primary transition-colors hover:bg-primary/90">
-                                  Approve
-                                </button>
-                                <button className="rounded-lg border border-outline-variant/10 bg-surface-container px-3 py-1.5 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container-high/50">
-                                  Reject
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                              <span className="text-[10px] font-bold text-on-surface-variant">{confidence}%</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Snippet */}
+                        {snippet && (
+                          <p className="mt-2 text-xs text-on-surface-variant/70 line-clamp-2 bg-surface-container-high/30 rounded px-2 py-1.5">
+                            {snippet}
+                          </p>
+                        )}
+
+                        {/* Extracted data grid */}
+                        <div className="mt-3 grid grid-cols-2 md:grid-cols-5 gap-3">
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Order/PO</span>
+                            <p className="text-sm font-medium text-on-surface mt-0.5">{orderRef || "—"}</p>
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Supplier</span>
+                            <p className="text-sm text-on-surface mt-0.5">{supplier}</p>
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Invoice #</span>
+                            <p className="text-sm text-on-surface mt-0.5">{invoice || "—"}</p>
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Amount</span>
+                            <p className="text-sm font-semibold text-on-surface mt-0.5">
+                              {amount > 0 ? `$${amount.toFixed(2)}` : "—"}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Tracking</span>
+                            <p className="text-sm text-on-surface mt-0.5 truncate">{tracking || "—"}</p>
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="mt-3 flex items-center justify-end gap-2">
+                          <button className="rounded-lg border border-outline-variant/10 bg-surface-container-low px-3 py-1.5 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface-container-high/50">
+                            Reject
+                          </button>
+                          <button className="rounded-lg bg-tertiary-dim/15 px-3 py-1.5 text-xs font-semibold text-tertiary-dim transition-colors hover:bg-tertiary-dim/25">
+                            Approve
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </>
