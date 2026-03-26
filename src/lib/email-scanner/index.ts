@@ -14,7 +14,10 @@ import { eq, and, inArray } from "drizzle-orm";
 interface ExtractedInvoice {
   invoiceNumber: string | null;
   supplierName: string | null;
-  totalAmount: number | null;
+  productCost: number | null;
+  shippingCost: number | null;
+  grandTotal: number | null;
+  totalAmount: number | null; // kept for backward compat — equals shippingCost or grandTotal
   trackingNumber: string | null;
   orderReference: string | null;
   amountContext: string | null;
@@ -94,7 +97,7 @@ function extractFromText(text: string): Omit<ExtractedInvoice, "emailLink" | "em
   else if (textLower.includes("usps") || textLower.includes("united states postal")) supplierName = "USPS";
   else if (textLower.includes("dhl")) supplierName = "DHL";
 
-  return { invoiceNumber, supplierName, totalAmount, trackingNumber, orderReference, amountContext };
+  return { invoiceNumber, supplierName, productCost: null, shippingCost: totalAmount, grandTotal: null, totalAmount, trackingNumber, orderReference, amountContext };
 }
 
 // ─── ProfitPilot AI PDF extraction ──────────────────────────────────────────────────
@@ -111,7 +114,7 @@ async function extractFromPdfWithAI(pdfBase64: string): Promise<Omit<ExtractedIn
       body: JSON.stringify({
         contents: [{
           parts: [
-            { text: 'Extract shipping cost data from this supplier invoice PDF. Return ONLY valid JSON with: invoice_number (string|null), supplier_name (string|null), shipping_cost (number|null — the shipping/freight line item amount, NOT the grand total), grand_total (number|null — the overall invoice total), tracking_number (string|null), order_reference (string|null — look for PO Number, Order #, or Reference fields), amount_context (string|null — the exact line showing the shipping cost). If not found, set null.' },
+            { text: 'Extract cost data from this supplier invoice PDF. Return ONLY valid JSON with: invoice_number (string|null), supplier_name (string|null), product_cost (number|null — subtotal of product line items BEFORE shipping), shipping_cost (number|null — the shipping/freight line item amount only), grand_total (number|null — the overall invoice total including everything), tracking_number (string|null), order_reference (string|null — look for PO Number, Order #, or Reference fields), amount_context (string|null — the key lines showing product subtotal, shipping, and grand total). If not found, set null.' },
             { inline_data: { mime_type: "application/pdf", data: pdfBase64 } },
           ],
         }],
@@ -127,23 +130,26 @@ async function extractFromPdfWithAI(pdfBase64: string): Promise<Omit<ExtractedIn
   const result = await response.json();
   const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
   const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return { invoiceNumber: null, supplierName: null, totalAmount: null, trackingNumber: null, orderReference: null, amountContext: null };
+  if (!jsonMatch) return { invoiceNumber: null, supplierName: null, productCost: null, shippingCost: null, grandTotal: null, totalAmount: null, trackingNumber: null, orderReference: null, amountContext: null };
 
   try {
     const p = JSON.parse(jsonMatch[0]);
+    const productCost = typeof p.product_cost === "number" ? p.product_cost : null;
+    const shippingCost = typeof p.shipping_cost === "number" ? p.shipping_cost : null;
+    const grandTotal = typeof p.grand_total === "number" ? p.grand_total : null;
     return {
       invoiceNumber: p.invoice_number || null,
       supplierName: p.supplier_name || null,
-      // Prefer shipping_cost over grand_total
-      totalAmount: typeof p.shipping_cost === "number" ? p.shipping_cost
-        : typeof p.total_amount === "number" ? p.total_amount
-        : typeof p.grand_total === "number" ? p.grand_total : null,
+      productCost,
+      shippingCost,
+      grandTotal,
+      totalAmount: shippingCost || grandTotal || null,
       trackingNumber: p.tracking_number || null,
       orderReference: p.order_reference || null,
       amountContext: p.amount_context || null,
     };
   } catch {
-    return { invoiceNumber: null, supplierName: null, totalAmount: null, trackingNumber: null, orderReference: null, amountContext: null };
+    return { invoiceNumber: null, supplierName: null, productCost: null, shippingCost: null, grandTotal: null, totalAmount: null, trackingNumber: null, orderReference: null, amountContext: null };
   }
 }
 
@@ -336,6 +342,9 @@ async function scanGmail(
               extracted = {
                 invoiceNumber: pdfExtracted.invoiceNumber || extracted.invoiceNumber,
                 supplierName: pdfExtracted.supplierName || extracted.supplierName,
+                productCost: pdfExtracted.productCost || extracted.productCost,
+                shippingCost: pdfExtracted.shippingCost || extracted.shippingCost,
+                grandTotal: pdfExtracted.grandTotal || extracted.grandTotal,
                 totalAmount: pdfExtracted.totalAmount || extracted.totalAmount,
                 trackingNumber: pdfExtracted.trackingNumber || extracted.trackingNumber,
                 orderReference: pdfExtracted.orderReference || extracted.orderReference,
@@ -404,6 +413,9 @@ async function scanGmail(
         extractedData: {
           invoice: extracted.invoiceNumber,
           supplier: extracted.supplierName,
+          productCost: extracted.productCost,
+          shippingCost: extracted.shippingCost,
+          grandTotal: extracted.grandTotal,
           amount: extracted.totalAmount,
           order: matchedOrderNumber || extracted.orderReference,
           tracking: extracted.trackingNumber,
@@ -586,6 +598,9 @@ async function scanOutlook(
         extractedData: {
           invoice: extracted.invoiceNumber,
           supplier: extracted.supplierName,
+          productCost: extracted.productCost,
+          shippingCost: extracted.shippingCost,
+          grandTotal: extracted.grandTotal,
           amount: extracted.totalAmount,
           order: matchedOrderNumber || extracted.orderReference,
           tracking: extracted.trackingNumber,

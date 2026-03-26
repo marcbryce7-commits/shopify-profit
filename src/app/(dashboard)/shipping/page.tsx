@@ -317,6 +317,9 @@ export default function ShippingPage() {
                     const invoice = ext?.invoice as string | null;
                     const amountContext = ext?.amountContext as string | null;
                     const matchMethod = ext?.matchMethod as string | null;
+                    const productCost = Number(ext?.productCost ?? 0);
+                    const shippingCost = Number(ext?.shippingCost ?? 0);
+                    const grandTotal = Number(ext?.grandTotal ?? 0);
 
                     return (
                       <div key={item.id} className="rounded-lg bg-surface-container p-4">
@@ -366,7 +369,7 @@ export default function ShippingPage() {
                         )}
 
                         {/* Extracted data grid */}
-                        <div className="mt-3 grid grid-cols-2 md:grid-cols-5 gap-3">
+                        <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
                           <div>
                             <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Order/PO</span>
                             <p className="text-sm font-medium text-on-surface mt-0.5">{orderRef || "—"}</p>
@@ -383,16 +386,34 @@ export default function ShippingPage() {
                             <p className="text-sm text-on-surface mt-0.5">{invoice || "—"}</p>
                           </div>
                           <div>
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Amount</span>
-                            <p className="text-sm font-semibold text-on-surface mt-0.5">
-                              {amount > 0 ? `$${amount.toFixed(2)}` : "—"}
-                            </p>
-                          </div>
-                          <div>
                             <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Tracking</span>
                             <p className="text-sm text-on-surface mt-0.5 truncate">{tracking || "—"}</p>
                           </div>
                         </div>
+
+                        {/* Cost breakdown */}
+                        {(productCost > 0 || shippingCost > 0 || grandTotal > 0) && (
+                          <div className="mt-3 grid grid-cols-3 gap-3 rounded-lg bg-surface-container-high/30 p-3">
+                            <div>
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Product Cost</span>
+                              <p className="text-sm font-semibold text-on-surface mt-0.5">
+                                {productCost > 0 ? `$${productCost.toFixed(2)}` : "—"}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Shipping Cost</span>
+                              <p className="text-sm font-semibold text-on-surface mt-0.5">
+                                {shippingCost > 0 ? `$${shippingCost.toFixed(2)}` : "—"}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Invoice Total</span>
+                              <p className="text-sm font-semibold text-on-surface mt-0.5">
+                                {grandTotal > 0 ? `$${grandTotal.toFixed(2)}` : "—"}
+                              </p>
+                            </div>
+                          </div>
+                        )}
 
                         {/* AI Reasoning */}
                         {amountContext && (

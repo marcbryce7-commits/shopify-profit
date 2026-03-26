@@ -600,11 +600,22 @@ async function upsertOrder(
   }> | null;
 
   // Calculate net profit (without ad spend / custom costs — those are allocated later)
+  // Check if there's an existing actual shipping cost (from approved invoices)
+  const [existingOrder] = await db
+    .select({ actualShippingCost: orders.actualShippingCost })
+    .from(orders)
+    .where(and(eq(orders.storeId, storeId), eq(orders.shopifyOrderId, shopifyOrderId)))
+    .limit(1);
+
+  const existingActualShipping = existingOrder?.actualShippingCost
+    ? parseFloat(existingOrder.actualShippingCost)
+    : null;
+
   const orderCosts: OrderCosts = {
     subtotal,
     totalCogs,
     shippingCharged,
-    actualShippingCost: null,
+    actualShippingCost: existingActualShipping,
     transactionFee,
     customCostsTotal: 0,
     allocatedAdSpend: 0,
