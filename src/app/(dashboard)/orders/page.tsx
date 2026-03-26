@@ -463,6 +463,12 @@ export default function OrdersPage() {
                       Revenue
                     </th>
                     <th className="px-4 py-3 text-right text-[11px] uppercase tracking-wider font-bold text-on-surface-variant">
+                      Ship Charged
+                    </th>
+                    <th className="px-4 py-3 text-right text-[11px] uppercase tracking-wider font-bold text-on-surface-variant">
+                      Ship Actual
+                    </th>
+                    <th className="px-4 py-3 text-right text-[11px] uppercase tracking-wider font-bold text-on-surface-variant">
                       Net Profit
                     </th>
                     <th className="px-4 py-3 text-left text-[11px] uppercase tracking-wider font-bold text-on-surface-variant">
@@ -525,6 +531,18 @@ export default function OrdersPage() {
                         </td>
                         <td className="px-4 py-3.5 text-right text-sm text-on-surface">
                           {formatCurrency(order.subtotal)}
+                        </td>
+                        <td className="px-4 py-3.5 text-right text-sm text-on-surface-variant">
+                          {formatCurrency(order.shippingCharged)}
+                        </td>
+                        <td className={`px-4 py-3.5 text-right text-sm ${
+                          order.actualShippingCost > 0
+                            ? order.actualShippingCost <= order.shippingCharged
+                              ? "text-tertiary-dim font-medium"
+                              : "text-error font-medium"
+                            : "text-on-surface-variant/40"
+                        }`}>
+                          {order.actualShippingCost > 0 ? formatCurrency(order.actualShippingCost) : "—"}
                         </td>
                         <td className={`px-4 py-3.5 text-right text-sm font-bold ${
                           order.netProfit >= 0 ? "text-tertiary-dim" : "text-error"
