@@ -32,7 +32,8 @@ export interface ProfitResult {
 }
 
 export function calculateOrderProfit(costs: OrderCosts): ProfitResult {
-  const revenue = costs.subtotal;
+  // Revenue includes subtotal + shipping charged to customer
+  const revenue = costs.subtotal + costs.shippingCharged;
   const cogs = costs.totalCogs;
   const shippingCost = costs.actualShippingCost ?? costs.shippingCharged;
   const transactionFee = costs.transactionFee;
@@ -84,7 +85,7 @@ export function aggregateMetrics(
 ): AggregatedMetrics {
   const totals = orders.reduce(
     (acc, order) => {
-      acc.totalRevenue += order.subtotal;
+      acc.totalRevenue += order.subtotal + order.shippingCharged;
       acc.totalCogs += order.totalCogs;
       acc.totalShippingCharged += order.shippingCharged;
       acc.totalActualShipping += order.actualShippingCost ?? order.shippingCharged;
