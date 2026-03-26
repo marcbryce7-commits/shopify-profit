@@ -397,14 +397,18 @@ export async function getAdAnalytics(userId: string, storeId?: string) {
 // ─── Shipping / Email Agent ─────────────────────────────────────────────────
 
 export async function getShippingAgentData(userId: string) {
+  // Show matched and pending emails in review queue
   const pendingReview = await db
     .select()
     .from(emailLogs)
     .where(
-      and(eq(emailLogs.userId, userId), eq(emailLogs.status, "pending"))
+      and(
+        eq(emailLogs.userId, userId),
+        sql`${emailLogs.status} IN ('pending', 'matched')`
+      )
     )
     .orderBy(desc(emailLogs.createdAt))
-    .limit(50);
+    .limit(100);
 
   const recentHistory = await db
     .select()
@@ -412,7 +416,7 @@ export async function getShippingAgentData(userId: string) {
     .where(
       and(
         eq(emailLogs.userId, userId),
-        sql`${emailLogs.status} != 'pending'`
+        sql`${emailLogs.status} NOT IN ('pending', 'matched')`
       )
     )
     .orderBy(desc(emailLogs.processedAt))
