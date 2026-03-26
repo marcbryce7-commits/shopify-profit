@@ -309,10 +309,17 @@ async function scanGmail(
       // Pattern extraction
       let extracted = extractFromText(bodyText + " " + subject);
 
-      // PDF attachments → Gemini
-      const attachmentParts = (msgData.payload?.parts || []).filter(
-        (p: { mimeType: string }) => p.mimeType === "application/pdf"
-      );
+      // PDF attachments → Gemini (search recursively through all message parts)
+      function findPdfParts(parts: any[]): any[] {
+        const pdfs: any[] = [];
+        for (const p of parts) {
+          if (p.mimeType === "application/pdf") pdfs.push(p);
+          if (p.parts) pdfs.push(...findPdfParts(p.parts));
+        }
+        return pdfs;
+      }
+      const attachmentParts = findPdfParts(msgData.payload?.parts || []);
+      console.log(`  Email "${subject.substring(0, 50)}" has ${attachmentParts.length} PDF attachments`);
       for (const att of attachmentParts) {
         if (att.body?.attachmentId) {
           try {
@@ -323,7 +330,9 @@ async function scanGmail(
             if (attResponse.ok) {
               const attData = await attResponse.json();
               const pdfBase64 = attData.data.replace(/-/g, "+").replace(/_/g, "/");
+              console.log(`  Parsing PDF attachment with Gemini (${Math.round(pdfBase64.length / 1024)}KB)...`);
               const pdfExtracted = await extractFromPdfWithGemini(pdfBase64);
+              console.log("  Gemini result:", JSON.stringify(pdfExtracted));
               extracted = {
                 invoiceNumber: pdfExtracted.invoiceNumber || extracted.invoiceNumber,
                 supplierName: pdfExtracted.supplierName || extracted.supplierName,
