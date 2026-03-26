@@ -40,20 +40,37 @@ function extractFromText(text: string): Omit<ExtractedInvoice, "emailLink" | "em
   const fedexMatch = text.match(/\b(\d{12,22})\b/);
   const trackingNumber = upsMatch?.[1] || uspsMatch?.[1] || fedexMatch?.[1] || null;
 
-  // Dollar amounts — find the largest as likely total, with surrounding context
+  // Dollar amounts — prefer shipping-specific amounts over grand total
   const amountMatches = text.match(/\$[\d,]+\.\d{2}/g);
   let totalAmount: number | null = null;
   let amountContext: string | null = null;
   if (amountMatches) {
-    const amounts = amountMatches.map((a) => parseFloat(a.replace(/[$,]/g, "")));
-    totalAmount = Math.max(...amounts);
-    // Find the context around the matched amount
-    const amountStr = amountMatches[amounts.indexOf(totalAmount)];
-    const idx = text.indexOf(amountStr);
-    if (idx >= 0) {
-      const start = Math.max(0, idx - 80);
-      const end = Math.min(text.length, idx + amountStr.length + 80);
-      amountContext = text.substring(start, end).replace(/\s+/g, " ").trim();
+    // First, look for amounts near shipping keywords
+    const shippingKeywords = /shipping|freight|postage|delivery|carrier/i;
+    for (const amtStr of amountMatches) {
+      const idx = text.indexOf(amtStr);
+      if (idx >= 0) {
+        const nearby = text.substring(Math.max(0, idx - 60), idx + amtStr.length + 20);
+        if (shippingKeywords.test(nearby)) {
+          totalAmount = parseFloat(amtStr.replace(/[$,]/g, ""));
+          const start = Math.max(0, idx - 80);
+          const end = Math.min(text.length, idx + amtStr.length + 80);
+          amountContext = text.substring(start, end).replace(/\s+/g, " ").trim();
+          break;
+        }
+      }
+    }
+    // Fallback to largest amount if no shipping-specific one found
+    if (!totalAmount) {
+      const amounts = amountMatches.map((a) => parseFloat(a.replace(/[$,]/g, "")));
+      totalAmount = Math.max(...amounts);
+      const amountStr = amountMatches[amounts.indexOf(totalAmount)];
+      const idx = text.indexOf(amountStr);
+      if (idx >= 0) {
+        const start = Math.max(0, idx - 80);
+        const end = Math.min(text.length, idx + amountStr.length + 80);
+        amountContext = text.substring(start, end).replace(/\s+/g, " ").trim();
+      }
     }
   }
 
@@ -94,7 +111,7 @@ async function extractFromPdfWithGemini(pdfBase64: string): Promise<Omit<Extract
       body: JSON.stringify({
         contents: [{
           parts: [
-            { text: 'Extract shipping invoice data from this PDF. Return ONLY valid JSON with: invoice_number (string|null), supplier_name (string|null), total_amount (number|null), tracking_number (string|null), order_reference (string|null), amount_context (string|null — the exact line or sentence from the PDF where you found the total amount). If not found, set null.' },
+            { text: 'Extract shipping cost data from this supplier invoice PDF. Return ONLY valid JSON with: invoice_number (string|null), supplier_name (string|null), shipping_cost (number|null — the shipping/freight line item amount, NOT the grand total), grand_total (number|null — the overall invoice total), tracking_number (string|null), order_reference (string|null — look for PO Number, Order #, or Reference fields), amount_context (string|null — the exact line showing the shipping cost). If not found, set null.' },
             { inline_data: { mime_type: "application/pdf", data: pdfBase64 } },
           ],
         }],
@@ -117,7 +134,10 @@ async function extractFromPdfWithGemini(pdfBase64: string): Promise<Omit<Extract
     return {
       invoiceNumber: p.invoice_number || null,
       supplierName: p.supplier_name || null,
-      totalAmount: typeof p.total_amount === "number" ? p.total_amount : null,
+      // Prefer shipping_cost over grand_total
+      totalAmount: typeof p.shipping_cost === "number" ? p.shipping_cost
+        : typeof p.total_amount === "number" ? p.total_amount
+        : typeof p.grand_total === "number" ? p.grand_total : null,
       trackingNumber: p.tracking_number || null,
       orderReference: p.order_reference || null,
       amountContext: p.amount_context || null,
