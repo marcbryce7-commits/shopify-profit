@@ -97,9 +97,9 @@ function extractFromText(text: string): Omit<ExtractedInvoice, "emailLink" | "em
   return { invoiceNumber, supplierName, totalAmount, trackingNumber, orderReference, amountContext };
 }
 
-// ─── Gemini PDF extraction ──────────────────────────────────────────────────
+// ─── ProfitPilot AI PDF extraction ──────────────────────────────────────────────────
 
-async function extractFromPdfWithGemini(pdfBase64: string): Promise<Omit<ExtractedInvoice, "emailLink" | "emailSubject" | "emailSnippet">> {
+async function extractFromPdfWithAI(pdfBase64: string): Promise<Omit<ExtractedInvoice, "emailLink" | "emailSubject" | "emailSnippet">> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY not set");
 
@@ -120,8 +120,8 @@ async function extractFromPdfWithGemini(pdfBase64: string): Promise<Omit<Extract
   );
 
   if (!response.ok) {
-    console.error("Gemini API error:", await response.text());
-    throw new Error("Gemini API call failed");
+    console.error("ProfitPilot AI API error:", await response.text());
+    throw new Error("ProfitPilot AI API call failed");
   }
 
   const result = await response.json();
@@ -309,7 +309,7 @@ async function scanGmail(
       // Pattern extraction
       let extracted = extractFromText(bodyText + " " + subject);
 
-      // PDF attachments → Gemini (search recursively through all message parts)
+      // PDF attachments → ProfitPilot AI (search recursively through all message parts)
       function findPdfParts(parts: any[]): any[] {
         const pdfs: any[] = [];
         for (const p of parts) {
@@ -330,9 +330,9 @@ async function scanGmail(
             if (attResponse.ok) {
               const attData = await attResponse.json();
               const pdfBase64 = attData.data.replace(/-/g, "+").replace(/_/g, "/");
-              console.log(`  Parsing PDF attachment with Gemini (${Math.round(pdfBase64.length / 1024)}KB)...`);
-              const pdfExtracted = await extractFromPdfWithGemini(pdfBase64);
-              console.log("  Gemini result:", JSON.stringify(pdfExtracted));
+              console.log(`  Parsing PDF attachment with ProfitPilot AI (${Math.round(pdfBase64.length / 1024)}KB)...`);
+              const pdfExtracted = await extractFromPdfWithAI(pdfBase64);
+              console.log("  ProfitPilot AI result:", JSON.stringify(pdfExtracted));
               extracted = {
                 invoiceNumber: pdfExtracted.invoiceNumber || extracted.invoiceNumber,
                 supplierName: pdfExtracted.supplierName || extracted.supplierName,
@@ -513,7 +513,7 @@ async function scanOutlook(
             for (const att of (attData.value || []).filter((a: { contentType: string }) => a.contentType === "application/pdf")) {
               if (att.contentBytes) {
                 try {
-                  const pdfExtracted = await extractFromPdfWithGemini(att.contentBytes);
+                  const pdfExtracted = await extractFromPdfWithAI(att.contentBytes);
                   extracted = {
                     invoiceNumber: pdfExtracted.invoiceNumber || extracted.invoiceNumber,
                     supplierName: pdfExtracted.supplierName || extracted.supplierName,
