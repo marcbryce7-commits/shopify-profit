@@ -676,6 +676,7 @@ export async function scanEmails(userId: string): Promise<ScanResults> {
     : [];
 
   // Get already-approved order numbers — skip these during scan
+  // Only skip POs that are FULLY approved — tracking_approved and cost_approved still need scanning
   const approvedLogs = await db.select({ extractedData: emailLogs.extractedData })
     .from(emailLogs)
     .where(and(eq(emailLogs.userId, userId), eq(emailLogs.status, "approved")));

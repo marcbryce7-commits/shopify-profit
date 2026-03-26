@@ -43,6 +43,8 @@ export const shippingSourceEnum = pgEnum("shipping_source", [
 export const emailLogStatusEnum = pgEnum("email_log_status", [
   "pending",
   "matched",
+  "tracking_approved",
+  "cost_approved",
   "approved",
   "rejected",
   "skipped",
