@@ -529,6 +529,9 @@ async function scanOutlook(
                   extracted = {
                     invoiceNumber: pdfExtracted.invoiceNumber || extracted.invoiceNumber,
                     supplierName: pdfExtracted.supplierName || extracted.supplierName,
+                    productCost: pdfExtracted.productCost || extracted.productCost,
+                    shippingCost: pdfExtracted.shippingCost || extracted.shippingCost,
+                    grandTotal: pdfExtracted.grandTotal || extracted.grandTotal,
                     totalAmount: pdfExtracted.totalAmount || extracted.totalAmount,
                     trackingNumber: pdfExtracted.trackingNumber || extracted.trackingNumber,
                     orderReference: pdfExtracted.orderReference || extracted.orderReference,
