@@ -675,7 +675,25 @@ export async function scanEmails(userId: string): Promise<ScanResults> {
         .where(inArray(orders.storeId, storeIds))
     : [];
 
-  console.log(`Scanning ${accounts.length} accounts against ${userOrders.length} orders`);
+  // Get already-approved order numbers — skip these during scan
+  const approvedLogs = await db.select({ extractedData: emailLogs.extractedData })
+    .from(emailLogs)
+    .where(and(eq(emailLogs.userId, userId), eq(emailLogs.status, "approved")));
+  const approvedOrderNumbers = new Set(
+    approvedLogs
+      .map((l) => (l.extractedData as Record<string, unknown> | null)?.order as string | null)
+      .filter(Boolean)
+  );
+  console.log(`Already approved POs: ${approvedOrderNumbers.size} (${[...approvedOrderNumbers].slice(0, 5).join(", ")}${approvedOrderNumbers.size > 5 ? "..." : ""})`);
+
+  // Filter out orders that already have approved invoices
+  const pendingOrders = userOrders.filter((o) => !approvedOrderNumbers.has(o.orderNumber));
+  console.log(`Scanning ${accounts.length} accounts against ${pendingOrders.length} orders (${userOrders.length - pendingOrders.length} already approved)`);
+
+  if (pendingOrders.length === 0) {
+    console.log("All orders have approved invoices — nothing to scan");
+    return totals;
+  }
 
   for (const account of accounts) {
     try {
@@ -685,12 +703,12 @@ export async function scanEmails(userId: string): Promise<ScanResults> {
       if (account.provider === "gmail") {
         accountResults = await scanGmail(
           { id: account.id, accessToken: account.accessToken, refreshToken: account.refreshToken, userId: account.userId },
-          userOrders, poPrefix, ignoredSenders
+          pendingOrders, poPrefix, ignoredSenders
         );
       } else if (account.provider === "outlook") {
         accountResults = await scanOutlook(
           { id: account.id, accessToken: account.accessToken, refreshToken: account.refreshToken, userId: account.userId },
-          userOrders, poPrefix, ignoredSenders
+          pendingOrders, poPrefix, ignoredSenders
         );
       } else {
         continue;
