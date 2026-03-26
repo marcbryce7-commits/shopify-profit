@@ -211,7 +211,8 @@ function buildSearchTerms(
 async function scanGmail(
   account: { id: string; accessToken: string; refreshToken: string | null; userId: string },
   userOrders: { id: string; orderNumber: string; customerName: string | null; customerEmail: string | null }[],
-  poPrefix: string | null
+  poPrefix: string | null,
+  ignoredSenders: string[]
 ): Promise<{ scanned: number; matched: number; pending: number; skipped: number }> {
   let accessToken = decrypt(account.accessToken);
   const results = { scanned: 0, matched: 0, pending: 0, skipped: 0 };
@@ -263,6 +264,13 @@ async function scanGmail(
       const subject = headers.find((h: { name: string }) => h.name === "Subject")?.value || "";
       const sender = headers.find((h: { name: string }) => h.name === "From")?.value || "";
       const dateStr = headers.find((h: { name: string }) => h.name === "Date")?.value || "";
+
+      // Check ignore list
+      const senderEmail = sender.match(/<([^>]+)>/)?.[1]?.toLowerCase() || sender.toLowerCase();
+      if (ignoredSenders.some((ignored) => senderEmail.includes(ignored))) {
+        results.skipped++;
+        continue;
+      }
 
       // Email link for Gmail
       const emailLink = `https://mail.google.com/mail/u/0/#inbox/${msg.id}`;
@@ -405,7 +413,8 @@ async function scanGmail(
 async function scanOutlook(
   account: { id: string; accessToken: string; refreshToken: string | null; userId: string },
   userOrders: { id: string; orderNumber: string; customerName: string | null; customerEmail: string | null }[],
-  poPrefix: string | null
+  poPrefix: string | null,
+  ignoredSenders: string[]
 ): Promise<{ scanned: number; matched: number; pending: number; skipped: number }> {
   let accessToken = decrypt(account.accessToken);
   const results = { scanned: 0, matched: 0, pending: 0, skipped: 0 };
@@ -449,6 +458,13 @@ async function scanOutlook(
 
       const subject = msg.subject || "";
       const sender = msg.from?.emailAddress?.address || "";
+
+      // Check ignore list
+      if (ignoredSenders.some((ignored) => sender.toLowerCase().includes(ignored))) {
+        results.skipped++;
+        continue;
+      }
+
       const bodyText = msg.body?.content || "";
       const receivedAt = msg.receivedDateTime ? new Date(msg.receivedDateTime) : new Date();
       const emailLink = msg.webLink || null;
@@ -593,7 +609,12 @@ export async function scanEmails(userId: string): Promise<ScanResults> {
   // Get user's stores with PO prefix
   const userStores = await db.select().from(stores).where(eq(stores.userId, userId));
   const poPrefix = userStores[0]?.poPrefix || null;
+  const ignoredSenders = (userStores[0]?.ignoredSenders || "")
+    .split(",")
+    .map((s: string) => s.trim().toLowerCase())
+    .filter(Boolean);
   console.log("PO prefix:", poPrefix || "(none set)");
+  console.log("Ignored senders:", ignoredSenders.length > 0 ? ignoredSenders.join(", ") : "(none)");
 
   // Get user's orders for matching
   const storeIds = userStores.map((s) => s.id);
@@ -617,12 +638,12 @@ export async function scanEmails(userId: string): Promise<ScanResults> {
       if (account.provider === "gmail") {
         accountResults = await scanGmail(
           { id: account.id, accessToken: account.accessToken, refreshToken: account.refreshToken, userId: account.userId },
-          userOrders, poPrefix
+          userOrders, poPrefix, ignoredSenders
         );
       } else if (account.provider === "outlook") {
         accountResults = await scanOutlook(
           { id: account.id, accessToken: account.accessToken, refreshToken: account.refreshToken, userId: account.userId },
-          userOrders, poPrefix
+          userOrders, poPrefix, ignoredSenders
         );
       } else {
         continue;

@@ -23,14 +23,18 @@ export async function PATCH(req: NextRequest) {
   const authResult = await requireAuth();
   if (authResult instanceof NextResponse) return authResult;
 
-  const { storeId, poPrefix } = await req.json();
+  const { storeId, poPrefix, ignoredSenders } = await req.json();
   if (!storeId) {
     return NextResponse.json({ error: "storeId required" }, { status: 400 });
   }
 
+  const updateData: Record<string, unknown> = {};
+  if (poPrefix !== undefined) updateData.poPrefix = poPrefix || null;
+  if (ignoredSenders !== undefined) updateData.ignoredSenders = ignoredSenders || null;
+
   await db
     .update(stores)
-    .set({ poPrefix: poPrefix || null })
+    .set(updateData)
     .where(and(eq(stores.id, storeId), eq(stores.userId, authResult.userId)));
 
   return NextResponse.json({ success: true });

@@ -30,6 +30,7 @@ interface Store {
   name: string;
   status: string;
   poPrefix: string | null;
+  ignoredSenders: string | null;
   lastSyncAt: string | null;
   createdAt: string;
 }
@@ -101,13 +102,19 @@ export default function StoresPage() {
     }
   };
 
-  const handleSavePoPrefix = async (storeId: string, poPrefix: string) => {
+  const handleSaveStoreSettings = async (storeId: string) => {
+    const poInput = document.getElementById(`po-${storeId}`) as HTMLInputElement;
+    const ignoreInput = document.getElementById(`ignore-${storeId}`) as HTMLTextAreaElement;
     try {
-      await apiPatch("/api/stores", { storeId, poPrefix });
-      toast.success("PO prefix saved");
+      await apiPatch("/api/stores", {
+        storeId,
+        poPrefix: poInput?.value || "",
+        ignoredSenders: ignoreInput?.value || "",
+      });
+      toast.success("Store settings saved");
       refetch();
     } catch {
-      toast.error("Failed to save PO prefix");
+      toast.error("Failed to save settings");
     }
   };
 
@@ -319,32 +326,44 @@ export default function StoresPage() {
                     </div>
                   </div>
 
-                  {/* PO Prefix / Email Search Settings */}
-                  <div className="rounded-lg bg-surface-container-high/30 p-3">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
-                      PO Prefix for Email Scanner
-                    </label>
-                    <div className="mt-1.5 flex items-center gap-2">
+                  {/* Email Scanner Settings */}
+                  <div className="rounded-lg bg-surface-container-high/30 p-3 space-y-3">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
+                        PO Prefix
+                      </label>
                       <input
                         type="text"
                         placeholder="e.g. RECOUT"
                         defaultValue={store.poPrefix || ""}
                         id={`po-${store.id}`}
-                        className="flex-1 rounded-lg bg-surface-container border-none px-3 py-1.5 text-sm text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                        className="mt-1 w-full rounded-lg bg-surface-container border-none px-3 py-1.5 text-sm text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-1 focus:ring-primary/30"
                       />
-                      <button
-                        onClick={() => {
-                          const input = document.getElementById(`po-${store.id}`) as HTMLInputElement;
-                          handleSavePoPrefix(store.id, input?.value || "");
-                        }}
-                        className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-on-primary transition-colors hover:bg-primary-dim"
-                      >
-                        Save
-                      </button>
+                      <p className="mt-0.5 text-[10px] text-on-surface-variant/60">
+                        Searches for prefix + order number, customer name, and customer email
+                      </p>
                     </div>
-                    <p className="mt-1 text-[10px] text-on-surface-variant/60">
-                      Scanner searches emails for PO prefix + order number (e.g. RECOUT1001), customer name, and order number
-                    </p>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
+                        Ignored Email Addresses
+                      </label>
+                      <textarea
+                        placeholder="e.g. mailer@shopify.com, no-reply@mystore.com"
+                        defaultValue={store.ignoredSenders || ""}
+                        id={`ignore-${store.id}`}
+                        rows={2}
+                        className="mt-1 w-full rounded-lg bg-surface-container border-none px-3 py-1.5 text-sm text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-1 focus:ring-primary/30 resize-none"
+                      />
+                      <p className="mt-0.5 text-[10px] text-on-surface-variant/60">
+                        Comma-separated list of sender emails to skip during scans
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleSaveStoreSettings(store.id)}
+                      className="rounded-lg bg-primary px-4 py-1.5 text-xs font-bold text-on-primary transition-colors hover:bg-primary-dim"
+                    >
+                      Save Settings
+                    </button>
                   </div>
 
                   {/* Action buttons */}
