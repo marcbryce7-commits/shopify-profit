@@ -50,6 +50,31 @@ export default function ShippingPage() {
   const [running, setRunning] = useState(false);
   const [activeTab, setActiveTab] = useState<"review" | "history" | "upload" | "settings">("review");
 
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+
+  const handleApprove = async (logId: string) => {
+    setApprovingId(logId);
+    try {
+      await apiPost("/api/shipping/approve", { logId });
+      toast.success("Invoice approved and shipping cost updated");
+      refetch();
+    } catch {
+      toast.error("Failed to approve invoice");
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const handleReject = async (logId: string) => {
+    try {
+      await apiPost("/api/shipping/reject", { logId });
+      toast.success("Invoice rejected");
+      refetch();
+    } catch {
+      toast.error("Failed to reject invoice");
+    }
+  };
+
   const handleRunAgent = async () => {
     setRunning(true);
     try {
@@ -388,11 +413,18 @@ export default function ShippingPage() {
 
                         {/* Actions */}
                         <div className="mt-3 flex items-center justify-end gap-2">
-                          <button className="rounded-lg border border-outline-variant/10 bg-surface-container-low px-3 py-1.5 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface-container-high/50">
+                          <button
+                            onClick={() => handleReject(item.id)}
+                            className="rounded-lg border border-outline-variant/10 bg-surface-container-low px-3 py-1.5 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface-container-high/50"
+                          >
                             Reject
                           </button>
-                          <button className="rounded-lg bg-tertiary-dim/15 px-3 py-1.5 text-xs font-semibold text-tertiary-dim transition-colors hover:bg-tertiary-dim/25">
-                            Approve
+                          <button
+                            onClick={() => handleApprove(item.id)}
+                            disabled={approvingId === item.id}
+                            className="rounded-lg bg-tertiary-dim/15 px-3 py-1.5 text-xs font-semibold text-tertiary-dim transition-colors hover:bg-tertiary-dim/25 disabled:opacity-50"
+                          >
+                            {approvingId === item.id ? "Approving..." : "Approve"}
                           </button>
                         </div>
                       </div>
