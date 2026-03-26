@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
     response_mode: "query",
     scope: "openid email Mail.Read offline_access",
     state,
+    prompt: "select_account",
   });
 
   const microsoftAuthUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`;
