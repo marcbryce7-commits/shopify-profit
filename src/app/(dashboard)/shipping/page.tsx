@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, Clock, CheckCircle, AlertCircle, Play, Upload, Loader2, Plus, Trash2, ExternalLink } from "lucide-react";
+import { Mail, Clock, CheckCircle, AlertCircle, Play, Upload, Loader2, Plus, Trash2, ExternalLink, Pencil, Truck, DollarSign } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { useApi, apiPost } from "@/hooks/use-api";
@@ -43,6 +43,24 @@ interface ShippingResponse {
   connectedAccounts: ConnectedAccount[];
 }
 
+type ApprovalType = "full" | "tracking_only" | "cost_only";
+
+interface CostOverrides {
+  [logId: string]: {
+    productCost?: string;
+    shippingCost?: string;
+    grandTotal?: string;
+  };
+}
+
+interface EditingState {
+  [logId: string]: {
+    productCost?: boolean;
+    shippingCost?: boolean;
+    grandTotal?: boolean;
+  };
+}
+
 export default function ShippingPage() {
   const { data, loading, error, refetch } = useApi<ShippingResponse>("/api/shipping");
   const [autoScan, setAutoScan] = useState(true);
@@ -51,12 +69,70 @@ export default function ShippingPage() {
   const [activeTab, setActiveTab] = useState<"review" | "history" | "upload" | "settings">("review");
 
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [costOverrides, setCostOverrides] = useState<CostOverrides>({});
+  const [editingFields, setEditingFields] = useState<EditingState>({});
 
-  const handleApprove = async (logId: string) => {
+  const setOverride = (logId: string, field: "productCost" | "shippingCost" | "grandTotal", value: string) => {
+    setCostOverrides((prev) => ({
+      ...prev,
+      [logId]: { ...prev[logId], [field]: value },
+    }));
+  };
+
+  const setEditing = (logId: string, field: "productCost" | "shippingCost" | "grandTotal", editing: boolean) => {
+    setEditingFields((prev) => ({
+      ...prev,
+      [logId]: { ...prev[logId], [field]: editing },
+    }));
+  };
+
+  const buildOverridesPayload = (logId: string, ext: Record<string, unknown> | null) => {
+    const ov = costOverrides[logId];
+    if (!ov) return undefined;
+
+    const overrides: { productCost?: number; shippingCost?: number; grandTotal?: number } = {};
+    let hasOverride = false;
+
+    if (ov.productCost !== undefined) {
+      const parsed = parseFloat(ov.productCost);
+      if (!isNaN(parsed) && parsed !== Number(ext?.productCost ?? 0)) {
+        overrides.productCost = parsed;
+        hasOverride = true;
+      }
+    }
+    if (ov.shippingCost !== undefined) {
+      const parsed = parseFloat(ov.shippingCost);
+      if (!isNaN(parsed) && parsed !== Number(ext?.shippingCost ?? 0)) {
+        overrides.shippingCost = parsed;
+        hasOverride = true;
+      }
+    }
+    if (ov.grandTotal !== undefined) {
+      const parsed = parseFloat(ov.grandTotal);
+      if (!isNaN(parsed) && parsed !== Number(ext?.grandTotal ?? 0)) {
+        overrides.grandTotal = parsed;
+        hasOverride = true;
+      }
+    }
+
+    return hasOverride ? overrides : undefined;
+  };
+
+  const handleApprove = async (logId: string, type: ApprovalType, ext: Record<string, unknown> | null) => {
     setApprovingId(logId);
     try {
-      await apiPost("/api/shipping/approve", { logId });
-      toast.success("Invoice approved and shipping cost updated");
+      const overrides = buildOverridesPayload(logId, ext);
+      const body: { logId: string; type: ApprovalType; overrides?: { productCost?: number; shippingCost?: number; grandTotal?: number } } = { logId, type };
+      if (overrides) body.overrides = overrides;
+
+      await apiPost("/api/shipping/approve", body);
+
+      const messages: Record<ApprovalType, string> = {
+        full: "Fully approved — tracking & costs updated",
+        tracking_only: "Tracking approved — still needs cost data",
+        cost_only: "Costs approved — still needs shipping/tracking",
+      };
+      toast.success(messages[type]);
       refetch();
     } catch {
       toast.error("Failed to approve invoice");
@@ -135,6 +211,19 @@ export default function ShippingPage() {
     { key: "settings" as const, label: "Settings" },
   ];
 
+  // Filter review items: skip cards with no pricing AND no tracking
+  const filteredReview = pendingReview.filter((item) => {
+    const ext = item.extractedData as Record<string, unknown> | null;
+    const tracking = ext?.tracking as string | null;
+    const productCost = Number(ext?.productCost ?? 0);
+    const shippingCost = Number(ext?.shippingCost ?? 0);
+    const grandTotal = Number(ext?.grandTotal ?? 0);
+    const amount = Number(ext?.amount ?? 0);
+    const hasPricing = productCost > 0 || shippingCost > 0 || grandTotal > 0 || amount > 0;
+    const hasTracking = !!tracking;
+    return hasPricing || hasTracking;
+  });
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -190,7 +279,7 @@ export default function ShippingPage() {
             <span className="text-xs font-medium uppercase tracking-wider text-on-surface-variant">Pending Review</span>
             <AlertCircle className="h-4 w-4 text-error" />
           </div>
-          <div className="mt-3 text-lg font-semibold text-on-surface">{pendingReview.length} need approval</div>
+          <div className="mt-3 text-lg font-semibold text-on-surface">{filteredReview.length} need approval</div>
         </div>
       </div>
 
@@ -299,13 +388,13 @@ export default function ShippingPage() {
           {/* Review Queue Tab */}
           {activeTab === "review" && (
             <>
-              {pendingReview.length === 0 ? (
+              {filteredReview.length === 0 ? (
                 <div className="py-12 text-center text-sm text-on-surface-variant">
                   No invoices pending review. Click &quot;Run Agent Now&quot; to scan your emails.
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {pendingReview.map((item) => {
+                  {filteredReview.map((item) => {
                     const ext = item.extractedData as Record<string, unknown> | null;
                     const confidence = Number(ext?.confidence ?? 0);
                     const emailLink = ext?.emailLink as string | null;
@@ -321,13 +410,47 @@ export default function ShippingPage() {
                     const shippingCost = Number(ext?.shippingCost ?? 0);
                     const grandTotal = Number(ext?.grandTotal ?? 0);
 
+                    const hasPricing = productCost > 0 || shippingCost > 0 || grandTotal > 0 || amount > 0;
+                    const hasTracking = !!tracking;
+
+                    // Status badges for partially approved items
+                    const status = item.status;
+                    const isTrackingApproved = status === "tracking_approved";
+                    const isCostApproved = status === "cost_approved";
+
+                    // Current override values (fallback to extracted)
+                    const ov = costOverrides[item.id];
+                    const displayProductCost = ov?.productCost !== undefined ? ov.productCost : (productCost > 0 ? productCost.toFixed(2) : "");
+                    const displayShippingCost = ov?.shippingCost !== undefined ? ov.shippingCost : (shippingCost > 0 ? shippingCost.toFixed(2) : "");
+                    const displayGrandTotal = ov?.grandTotal !== undefined ? ov.grandTotal : (grandTotal > 0 ? grandTotal.toFixed(2) : "");
+
+                    const editing = editingFields[item.id];
+
                     return (
-                      <div key={item.id} className="rounded-lg bg-surface-container p-4">
+                      <div key={item.id} className="rounded-lg bg-[#19191d] border border-[#47474e]/30 p-4">
+                        {/* Status badge for partial approvals */}
+                        {(isTrackingApproved || isCostApproved) && (
+                          <div className="mb-3">
+                            {isTrackingApproved && (
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/15 px-3 py-1 text-[11px] font-semibold text-blue-400">
+                                <Truck className="h-3 w-3" />
+                                Tracking &#10003; &mdash; Costs Needed
+                              </span>
+                            )}
+                            {isCostApproved && (
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1 text-[11px] font-semibold text-amber-400">
+                                <DollarSign className="h-3 w-3" />
+                                Costs &#10003; &mdash; Shipping Needed
+                              </span>
+                            )}
+                          </div>
+                        )}
+
                         {/* Top row: subject + link */}
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <h4 className="text-sm font-semibold text-on-surface truncate">
+                              <h4 className="text-sm font-semibold text-[#e7e4ec] truncate">
                                 {item.emailSubject || "No subject"}
                               </h4>
                               {emailLink && (
@@ -342,28 +465,28 @@ export default function ShippingPage() {
                                 </a>
                               )}
                             </div>
-                            <p className="text-xs text-on-surface-variant mt-0.5">
+                            <p className="text-xs text-[#acaab1] mt-0.5">
                               From: {item.sender} &middot; {new Date(item.receivedAt).toLocaleDateString()}
                             </p>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             <div className="flex items-center gap-1.5">
-                              <div className="h-2 w-16 overflow-hidden rounded-full bg-surface-container-highest/50">
+                              <div className="h-2 w-16 overflow-hidden rounded-full bg-[#25252b]">
                                 <div
                                   className={`h-full rounded-full ${
-                                    confidence > 80 ? "bg-tertiary-dim" : confidence > 50 ? "bg-yellow-500" : "bg-error"
+                                    confidence > 80 ? "bg-[#73f08c]" : confidence > 50 ? "bg-yellow-500" : "bg-[#ee7d77]"
                                   }`}
                                   style={{ width: `${confidence}%` }}
                                 />
                               </div>
-                              <span className="text-[10px] font-bold text-on-surface-variant">{confidence}%</span>
+                              <span className="text-[10px] font-bold text-[#75757c]">{confidence}%</span>
                             </div>
                           </div>
                         </div>
 
                         {/* Snippet */}
                         {snippet && (
-                          <p className="mt-2 text-xs text-on-surface-variant/70 line-clamp-2 bg-surface-container-high/30 rounded px-2 py-1.5">
+                          <p className="mt-2 text-xs text-[#acaab1]/70 line-clamp-2 bg-[#131316] rounded px-2 py-1.5">
                             {snippet}
                           </p>
                         )}
@@ -371,47 +494,74 @@ export default function ShippingPage() {
                         {/* Extracted data grid */}
                         <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
                           <div>
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Order/PO</span>
-                            <p className="text-sm font-medium text-on-surface mt-0.5">{orderRef || "—"}</p>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#75757c]">Order/PO</span>
+                            <p className="text-sm font-medium text-[#e7e4ec] mt-0.5">{orderRef || "\u2014"}</p>
                             {matchMethod && (
-                              <span className="text-[10px] text-tertiary-dim">Matched by: {matchMethod}</span>
+                              <span className="text-[10px] text-[#73f08c]">Matched by: {matchMethod}</span>
                             )}
                           </div>
                           <div>
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Supplier</span>
-                            <p className="text-sm text-on-surface mt-0.5">{supplier}</p>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#75757c]">Supplier</span>
+                            <p className="text-sm text-[#e7e4ec] mt-0.5">{supplier}</p>
                           </div>
                           <div>
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Invoice #</span>
-                            <p className="text-sm text-on-surface mt-0.5">{invoice || "—"}</p>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#75757c]">Invoice #</span>
+                            <p className="text-sm text-[#e7e4ec] mt-0.5">{invoice || "\u2014"}</p>
                           </div>
                           <div>
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Tracking</span>
-                            <p className="text-sm text-on-surface mt-0.5 truncate">{tracking || "—"}</p>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#75757c]">Tracking</span>
+                            <p className="text-sm text-[#e7e4ec] mt-0.5 truncate">{tracking || "\u2014"}</p>
                           </div>
                         </div>
 
-                        {/* Cost breakdown */}
-                        {(productCost > 0 || shippingCost > 0 || grandTotal > 0) && (
-                          <div className="mt-3 grid grid-cols-3 gap-3 rounded-lg bg-surface-container-high/30 p-3">
-                            <div>
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Product Cost</span>
-                              <p className="text-sm font-semibold text-on-surface mt-0.5">
-                                {productCost > 0 ? `$${productCost.toFixed(2)}` : "—"}
-                              </p>
-                            </div>
-                            <div>
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Shipping Cost</span>
-                              <p className="text-sm font-semibold text-on-surface mt-0.5">
-                                {shippingCost > 0 ? `$${shippingCost.toFixed(2)}` : "—"}
-                              </p>
-                            </div>
-                            <div>
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Invoice Total</span>
-                              <p className="text-sm font-semibold text-on-surface mt-0.5">
-                                {grandTotal > 0 ? `$${grandTotal.toFixed(2)}` : "—"}
-                              </p>
-                            </div>
+                        {/* Cost breakdown — editable fields */}
+                        {(hasPricing || isTrackingApproved || isCostApproved) && (
+                          <div className="mt-3 grid grid-cols-3 gap-3 rounded-lg bg-[#131316] p-3">
+                            {/* Product Cost */}
+                            <EditableCostField
+                              label="Product Cost"
+                              value={displayProductCost}
+                              isEditing={!!editing?.productCost}
+                              onStartEdit={() => {
+                                setEditing(item.id, "productCost", true);
+                                if (ov?.productCost === undefined && productCost > 0) {
+                                  setOverride(item.id, "productCost", productCost.toFixed(2));
+                                }
+                              }}
+                              onStopEdit={() => setEditing(item.id, "productCost", false)}
+                              onChange={(val) => setOverride(item.id, "productCost", val)}
+                              hasOverride={ov?.productCost !== undefined && parseFloat(ov.productCost) !== productCost}
+                            />
+                            {/* Shipping Cost */}
+                            <EditableCostField
+                              label="Shipping Cost"
+                              value={displayShippingCost}
+                              isEditing={!!editing?.shippingCost}
+                              onStartEdit={() => {
+                                setEditing(item.id, "shippingCost", true);
+                                if (ov?.shippingCost === undefined && shippingCost > 0) {
+                                  setOverride(item.id, "shippingCost", shippingCost.toFixed(2));
+                                }
+                              }}
+                              onStopEdit={() => setEditing(item.id, "shippingCost", false)}
+                              onChange={(val) => setOverride(item.id, "shippingCost", val)}
+                              hasOverride={ov?.shippingCost !== undefined && parseFloat(ov.shippingCost) !== shippingCost}
+                            />
+                            {/* Grand Total */}
+                            <EditableCostField
+                              label="Invoice Total"
+                              value={displayGrandTotal}
+                              isEditing={!!editing?.grandTotal}
+                              onStartEdit={() => {
+                                setEditing(item.id, "grandTotal", true);
+                                if (ov?.grandTotal === undefined && grandTotal > 0) {
+                                  setOverride(item.id, "grandTotal", grandTotal.toFixed(2));
+                                }
+                              }}
+                              onStopEdit={() => setEditing(item.id, "grandTotal", false)}
+                              onChange={(val) => setOverride(item.id, "grandTotal", val)}
+                              hasOverride={ov?.grandTotal !== undefined && parseFloat(ov.grandTotal) !== grandTotal}
+                            />
                           </div>
                         )}
 
@@ -421,32 +571,62 @@ export default function ShippingPage() {
                             <summary className="cursor-pointer text-[11px] font-semibold text-primary hover:text-primary-dim select-none">
                               View AI reasoning
                             </summary>
-                            <div className="mt-2 rounded-lg bg-surface-container-highest/30 border border-outline-variant/10 px-3 py-2">
-                              <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">
+                            <div className="mt-2 rounded-lg bg-[#0e0e10] border border-[#47474e]/30 px-3 py-2">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-[#75757c] mb-1">
                                 Amount found in context:
                               </p>
-                              <p className="text-xs text-on-surface font-mono leading-relaxed">
+                              <p className="text-xs text-[#e7e4ec] font-mono leading-relaxed">
                                 &quot;...{amountContext}...&quot;
                               </p>
                             </div>
                           </details>
                         )}
 
-                        {/* Actions */}
-                        <div className="mt-3 flex items-center justify-end gap-2">
+                        {/* Actions — smart button visibility */}
+                        <div className="mt-3 flex items-center justify-end gap-2 flex-wrap">
+                          {/* Reject — always visible */}
                           <button
                             onClick={() => handleReject(item.id)}
-                            className="rounded-lg border border-outline-variant/10 bg-surface-container-low px-3 py-1.5 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface-container-high/50"
+                            className="rounded-lg border border-[#47474e]/50 bg-[#1f1f24] px-3 py-1.5 text-xs font-medium text-[#acaab1] transition-colors hover:bg-[#25252b] hover:text-[#ee7d77] hover:border-[#ee7d77]/30"
                           >
                             Reject
                           </button>
-                          <button
-                            onClick={() => handleApprove(item.id)}
-                            disabled={approvingId === item.id}
-                            className="rounded-lg bg-tertiary-dim/15 px-3 py-1.5 text-xs font-semibold text-tertiary-dim transition-colors hover:bg-tertiary-dim/25 disabled:opacity-50"
-                          >
-                            {approvingId === item.id ? "Approving..." : "Approve"}
-                          </button>
+
+                          {/* Cost Only — when pricing exists but no tracking */}
+                          {hasPricing && !hasTracking && (
+                            <button
+                              onClick={() => handleApprove(item.id, "cost_only", ext)}
+                              disabled={approvingId === item.id}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-400 transition-colors hover:bg-amber-500/25 disabled:opacity-50"
+                            >
+                              <DollarSign className="h-3 w-3" />
+                              {approvingId === item.id ? "Approving..." : "Cost Only"}
+                            </button>
+                          )}
+
+                          {/* Tracking Only — when tracking exists but no pricing */}
+                          {hasTracking && !hasPricing && (
+                            <button
+                              onClick={() => handleApprove(item.id, "tracking_only", ext)}
+                              disabled={approvingId === item.id}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-500/15 px-3 py-1.5 text-xs font-semibold text-blue-400 transition-colors hover:bg-blue-500/25 disabled:opacity-50"
+                            >
+                              <Truck className="h-3 w-3" />
+                              {approvingId === item.id ? "Approving..." : "Tracking Only"}
+                            </button>
+                          )}
+
+                          {/* Approve All — when both tracking AND pricing exist */}
+                          {hasTracking && hasPricing && (
+                            <button
+                              onClick={() => handleApprove(item.id, "full", ext)}
+                              disabled={approvingId === item.id}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-[#73f08c]/15 px-3 py-1.5 text-xs font-semibold text-[#73f08c] transition-colors hover:bg-[#73f08c]/25 disabled:opacity-50"
+                            >
+                              <CheckCircle className="h-3 w-3" />
+                              {approvingId === item.id ? "Approving..." : "Approve All"}
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -546,6 +726,72 @@ export default function ShippingPage() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ── Editable Cost Field Component ────────────────────────────────────── */
+
+function EditableCostField({
+  label,
+  value,
+  isEditing,
+  onStartEdit,
+  onStopEdit,
+  onChange,
+  hasOverride,
+}: {
+  label: string;
+  value: string;
+  isEditing: boolean;
+  onStartEdit: () => void;
+  onStopEdit: () => void;
+  onChange: (val: string) => void;
+  hasOverride: boolean;
+}) {
+  const displayValue = value ? `$${parseFloat(value).toFixed(2)}` : "\u2014";
+  const isModified = hasOverride;
+
+  if (isEditing) {
+    return (
+      <div>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-[#75757c]">{label}</span>
+        <div className="mt-0.5 flex items-center gap-1">
+          <span className="text-sm text-[#75757c]">$</span>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            autoFocus
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onBlur={onStopEdit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === "Escape") onStopEdit();
+            }}
+            className="w-full rounded bg-[#0e0e10] border border-[#47474e] px-2 py-1 text-sm font-semibold text-[#e7e4ec] outline-none focus:border-primary transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <span className="text-[10px] font-bold uppercase tracking-wider text-[#75757c]">{label}</span>
+      <button
+        onClick={onStartEdit}
+        className="group mt-0.5 flex w-full items-center gap-1.5 text-left"
+        title="Click to edit"
+      >
+        <p className={`text-sm font-semibold ${isModified ? "text-amber-400" : "text-[#e7e4ec]"}`}>
+          {displayValue}
+        </p>
+        <Pencil className="h-3 w-3 text-[#75757c] opacity-0 group-hover:opacity-100 transition-opacity" />
+        {isModified && (
+          <span className="text-[9px] font-medium text-amber-400/70">edited</span>
+        )}
+      </button>
     </div>
   );
 }
