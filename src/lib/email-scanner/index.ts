@@ -7,7 +7,7 @@ import {
   stores,
 } from "@/lib/db/schema";
 import { decrypt, encrypt } from "@/lib/crypto";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -422,6 +422,42 @@ async function scanGmail(
         continue;
       }
 
+      // Skip if no pricing AND no tracking (no useful data)
+      const hasPricing = (extracted.productCost ?? 0) > 0 || (extracted.shippingCost ?? 0) > 0 || (extracted.grandTotal ?? 0) > 0 || (extracted.totalAmount ?? 0) > 0;
+      const hasTrackingNum = !!extracted.trackingNumber;
+      if (!hasPricing && !hasTrackingNum) {
+        results.skipped++;
+        continue;
+      }
+
+      // Duplicate invoice detection — skip if same invoice+supplier already exists
+      if (extracted.invoiceNumber && extracted.supplierName) {
+        const [existing] = await db.select({ id: emailLogs.id }).from(emailLogs)
+          .where(and(
+            eq(emailLogs.userId, account.userId),
+            sql`${emailLogs.extractedData}->>'invoice' = ${extracted.invoiceNumber}`,
+            sql`${emailLogs.extractedData}->>'supplier' = ${extracted.supplierName}`,
+          )).limit(1);
+        if (existing) {
+          console.log(`  Skipping duplicate invoice: ${extracted.invoiceNumber} from ${extracted.supplierName}`);
+          results.skipped++;
+          continue;
+        }
+      }
+
+      // Sanity check — if grand total > 3x order revenue, lower confidence
+      let confidence = 90;
+      if (extracted.grandTotal && matchedOrderId) {
+        const [matchedOrder] = await db.select({ subtotal: orders.subtotal }).from(orders).where(eq(orders.id, matchedOrderId)).limit(1);
+        if (matchedOrder) {
+          const orderSubtotal = Number(matchedOrder.subtotal || 0);
+          if (orderSubtotal > 0 && extracted.grandTotal > orderSubtotal * 3) {
+            confidence = 50;
+            console.log(`  ⚠ Sanity check: invoice total $${extracted.grandTotal} > 3x order subtotal $${orderSubtotal}`);
+          }
+        }
+      }
+
       await db.insert(emailLogs).values({
         userId: account.userId,
         connectedEmailId: account.id,
@@ -439,7 +475,7 @@ async function scanGmail(
           amount: extracted.totalAmount,
           order: matchedOrderNumber || extracted.orderReference,
           tracking: extracted.trackingNumber,
-          confidence: 90,
+          confidence,
           matchMethod,
           amountContext: extracted.amountContext,
           emailLink,
@@ -612,6 +648,42 @@ async function scanOutlook(
         continue;
       }
 
+      // Skip if no pricing AND no tracking (no useful data)
+      const hasPricingOl = (extracted.productCost ?? 0) > 0 || (extracted.shippingCost ?? 0) > 0 || (extracted.grandTotal ?? 0) > 0 || (extracted.totalAmount ?? 0) > 0;
+      const hasTrackingOl = !!extracted.trackingNumber;
+      if (!hasPricingOl && !hasTrackingOl) {
+        results.skipped++;
+        continue;
+      }
+
+      // Duplicate invoice detection
+      if (extracted.invoiceNumber && extracted.supplierName) {
+        const [existing] = await db.select({ id: emailLogs.id }).from(emailLogs)
+          .where(and(
+            eq(emailLogs.userId, account.userId),
+            sql`${emailLogs.extractedData}->>'invoice' = ${extracted.invoiceNumber}`,
+            sql`${emailLogs.extractedData}->>'supplier' = ${extracted.supplierName}`,
+          )).limit(1);
+        if (existing) {
+          console.log(`  Skipping duplicate invoice: ${extracted.invoiceNumber} from ${extracted.supplierName}`);
+          results.skipped++;
+          continue;
+        }
+      }
+
+      // Sanity check — if grand total > 3x order revenue, lower confidence
+      let confidenceOl = 90;
+      if (extracted.grandTotal && matchedOrderId) {
+        const [matchedOrder] = await db.select({ subtotal: orders.subtotal }).from(orders).where(eq(orders.id, matchedOrderId)).limit(1);
+        if (matchedOrder) {
+          const orderSubtotal = Number(matchedOrder.subtotal || 0);
+          if (orderSubtotal > 0 && extracted.grandTotal > orderSubtotal * 3) {
+            confidenceOl = 50;
+            console.log(`  ⚠ Sanity check: invoice total $${extracted.grandTotal} > 3x order subtotal $${orderSubtotal}`);
+          }
+        }
+      }
+
       await db.insert(emailLogs).values({
         userId: account.userId,
         connectedEmailId: account.id,
@@ -629,7 +701,7 @@ async function scanOutlook(
           amount: extracted.totalAmount,
           order: matchedOrderNumber || extracted.orderReference,
           tracking: extracted.trackingNumber,
-          confidence: 90,
+          confidence: confidenceOl,
           matchMethod,
           amountContext: extracted.amountContext,
           emailLink,

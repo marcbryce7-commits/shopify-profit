@@ -1,7 +1,9 @@
 "use client";
 
 import { DollarSign, MousePointerClick, Eye, TrendingUp, RefreshCw, Calendar, Loader2 } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+const Skeleton = ({ className }: { className?: string }) => (
+  <div className={`animate-pulse bg-[#25252b] rounded ${className || ""}`} />
+);
 import { useApi } from "@/hooks/use-api";
 import {
   Bar,
