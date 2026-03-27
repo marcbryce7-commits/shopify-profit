@@ -11,6 +11,13 @@ import { eq, and, inArray } from "drizzle-orm";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
+interface LineItem {
+  description: string;
+  qty: number;
+  unitPrice: number;
+  total: number;
+}
+
 interface ExtractedInvoice {
   invoiceNumber: string | null;
   supplierName: string | null;
@@ -21,6 +28,7 @@ interface ExtractedInvoice {
   trackingNumber: string | null;
   orderReference: string | null;
   amountContext: string | null;
+  lineItems: LineItem[];
   emailLink: string | null;
   emailSubject: string;
   emailSnippet: string;
@@ -97,7 +105,7 @@ function extractFromText(text: string): Omit<ExtractedInvoice, "emailLink" | "em
   else if (textLower.includes("usps") || textLower.includes("united states postal")) supplierName = "USPS";
   else if (textLower.includes("dhl")) supplierName = "DHL";
 
-  return { invoiceNumber, supplierName, productCost: null, shippingCost: totalAmount, grandTotal: null, totalAmount, trackingNumber, orderReference, amountContext };
+  return { invoiceNumber, supplierName, productCost: null, shippingCost: totalAmount, grandTotal: null, totalAmount, trackingNumber, orderReference, amountContext, lineItems: [] };
 }
 
 // ─── ProfitPilot AI PDF extraction ──────────────────────────────────────────────────
@@ -114,7 +122,7 @@ async function extractFromPdfWithAI(pdfBase64: string): Promise<Omit<ExtractedIn
       body: JSON.stringify({
         contents: [{
           parts: [
-            { text: 'Extract cost data from this supplier invoice PDF. Return ONLY valid JSON with: invoice_number (string|null), supplier_name (string|null), product_cost (number|null — subtotal of product line items BEFORE shipping), shipping_cost (number|null — the shipping/freight line item amount only), grand_total (number|null — the overall invoice total including everything), tracking_number (string|null), order_reference (string|null — look for PO Number, Order #, or Reference fields), amount_context (string|null — the key lines showing product subtotal, shipping, and grand total). If not found, set null.' },
+            { text: 'Extract cost data from this supplier invoice PDF. Return ONLY valid JSON with: invoice_number (string|null), supplier_name (string|null), product_cost (number|null — subtotal of product line items BEFORE shipping), shipping_cost (number|null — the shipping/freight line item amount only), grand_total (number|null — the overall invoice total including everything), tracking_number (string|null), order_reference (string|null — look for PO Number, Order #, or Reference fields), amount_context (string|null — the key lines showing product subtotal, shipping, and grand total), line_items (array of objects with description (string), qty (number), unit_price (number), total (number) — extract every individual line item from the invoice including product lines, shipping/freight, tax, fees, discounts, etc. Each line should have a human-readable description, quantity, unit price, and line total. If no line items can be identified, return an empty array). If not found, set null (except line_items which defaults to []).' },
             { inline_data: { mime_type: "application/pdf", data: pdfBase64 } },
           ],
         }],
@@ -130,13 +138,23 @@ async function extractFromPdfWithAI(pdfBase64: string): Promise<Omit<ExtractedIn
   const result = await response.json();
   const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
   const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return { invoiceNumber: null, supplierName: null, productCost: null, shippingCost: null, grandTotal: null, totalAmount: null, trackingNumber: null, orderReference: null, amountContext: null };
+  if (!jsonMatch) return { invoiceNumber: null, supplierName: null, productCost: null, shippingCost: null, grandTotal: null, totalAmount: null, trackingNumber: null, orderReference: null, amountContext: null, lineItems: [] };
 
   try {
     const p = JSON.parse(jsonMatch[0]);
     const productCost = typeof p.product_cost === "number" ? p.product_cost : null;
     const shippingCost = typeof p.shipping_cost === "number" ? p.shipping_cost : null;
     const grandTotal = typeof p.grand_total === "number" ? p.grand_total : null;
+    const lineItems: LineItem[] = Array.isArray(p.line_items)
+      ? p.line_items
+          .filter((li: unknown) => li && typeof li === "object")
+          .map((li: Record<string, unknown>) => ({
+            description: String(li.description ?? ""),
+            qty: typeof li.qty === "number" ? li.qty : 1,
+            unitPrice: typeof li.unit_price === "number" ? li.unit_price : 0,
+            total: typeof li.total === "number" ? li.total : 0,
+          }))
+      : [];
     return {
       invoiceNumber: p.invoice_number || null,
       supplierName: p.supplier_name || null,
@@ -147,9 +165,10 @@ async function extractFromPdfWithAI(pdfBase64: string): Promise<Omit<ExtractedIn
       trackingNumber: p.tracking_number || null,
       orderReference: p.order_reference || null,
       amountContext: p.amount_context || null,
+      lineItems,
     };
   } catch {
-    return { invoiceNumber: null, supplierName: null, productCost: null, shippingCost: null, grandTotal: null, totalAmount: null, trackingNumber: null, orderReference: null, amountContext: null };
+    return { invoiceNumber: null, supplierName: null, productCost: null, shippingCost: null, grandTotal: null, totalAmount: null, trackingNumber: null, orderReference: null, amountContext: null, lineItems: [] };
   }
 }
 
@@ -349,6 +368,7 @@ async function scanGmail(
                 trackingNumber: pdfExtracted.trackingNumber || extracted.trackingNumber,
                 orderReference: pdfExtracted.orderReference || extracted.orderReference,
                 amountContext: pdfExtracted.amountContext || extracted.amountContext,
+                lineItems: pdfExtracted.lineItems.length > 0 ? pdfExtracted.lineItems : extracted.lineItems,
               };
             }
           } catch (e) {
@@ -424,6 +444,7 @@ async function scanGmail(
           amountContext: extracted.amountContext,
           emailLink,
           snippet,
+          lineItems: extracted.lineItems.length > 0 ? extracted.lineItems : undefined,
         },
       });
 
@@ -536,6 +557,7 @@ async function scanOutlook(
                     trackingNumber: pdfExtracted.trackingNumber || extracted.trackingNumber,
                     orderReference: pdfExtracted.orderReference || extracted.orderReference,
                     amountContext: pdfExtracted.amountContext || extracted.amountContext,
+                    lineItems: pdfExtracted.lineItems.length > 0 ? pdfExtracted.lineItems : extracted.lineItems,
                   };
                 } catch (e) {
                   console.error("PDF extraction failed:", e);
@@ -612,6 +634,7 @@ async function scanOutlook(
           amountContext: extracted.amountContext,
           emailLink,
           snippet,
+          lineItems: extracted.lineItems.length > 0 ? extracted.lineItems : undefined,
         },
       });
 

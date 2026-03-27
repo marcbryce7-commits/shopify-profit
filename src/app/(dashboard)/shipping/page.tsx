@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, Clock, CheckCircle, AlertCircle, Play, Upload, Loader2, Plus, Trash2, ExternalLink, Pencil, Truck, DollarSign } from "lucide-react";
+import { Mail, Clock, CheckCircle, AlertCircle, Play, Upload, Loader2, Plus, Trash2, ExternalLink, Pencil, Truck, DollarSign, ChevronDown } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { useApi, apiPost } from "@/hooks/use-api";
@@ -25,6 +25,7 @@ interface EmailLog {
     matched?: number;
     errors?: number;
     duration?: string;
+    lineItems?: { description: string; qty: number; unitPrice: number; total: number }[];
   } | null;
 }
 
@@ -491,6 +492,15 @@ export default function ShippingPage() {
                           </p>
                         )}
 
+                        {/* Invoice Breakdown — collapsible line items */}
+                        {(ext?.lineItems as { description: string; qty: number; unitPrice: number; total: number }[] | undefined)?.length ? (
+                          <InvoiceBreakdown
+                            lineItems={ext!.lineItems as { description: string; qty: number; unitPrice: number; total: number }[]}
+                            grandTotal={grandTotal}
+                            emailLink={emailLink}
+                          />
+                        ) : null}
+
                         {/* Extracted data grid */}
                         <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
                           <div>
@@ -726,6 +736,73 @@ export default function ShippingPage() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ── Invoice Breakdown Component ──────────────────────────────────────── */
+
+function InvoiceBreakdown({
+  lineItems,
+  grandTotal,
+  emailLink,
+}: {
+  lineItems: { description: string; qty: number; unitPrice: number; total: number }[];
+  grandTotal: number;
+  emailLink: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const computedTotal = grandTotal > 0 ? grandTotal : lineItems.reduce((sum, li) => sum + li.total, 0);
+
+  return (
+    <div className="mt-3 rounded-lg bg-[#19191d] border border-[#47474e]/10">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between px-3 py-2.5"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-[#75757c]">
+            Invoice Breakdown
+          </span>
+          <ChevronDown
+            className={`h-3.5 w-3.5 text-[#75757c] transition-transform ${open ? "rotate-180" : ""}`}
+          />
+        </div>
+        {emailLink && (
+          <a
+            href={emailLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="text-[11px] font-medium text-[#acaab1] hover:text-[#e7e4ec] transition-colors"
+          >
+            View Email &#8599;
+          </a>
+        )}
+      </button>
+      {open && (
+        <div className="px-3 pb-3">
+          <div className="space-y-1">
+            {lineItems.map((li, idx) => (
+              <div key={idx} className="flex items-baseline justify-between gap-4">
+                <span className="text-xs text-[#e7e4ec] truncate">
+                  {li.qty > 1 ? `${li.qty}x  ` : "    "}
+                  {li.description}
+                </span>
+                <span className="text-xs text-[#acaab1] tabular-nums text-right flex-shrink-0">
+                  ${li.total.toFixed(2)}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 border-t border-[#47474e]/20 pt-2 flex items-baseline justify-between gap-4">
+            <span className="text-xs font-bold text-[#e7e4ec]">TOTAL</span>
+            <span className="text-xs font-bold text-[#e7e4ec] tabular-nums text-right">
+              ${computedTotal.toFixed(2)}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
